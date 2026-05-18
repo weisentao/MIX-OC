@@ -163,7 +163,13 @@ function normalizedProjectMembers(project = {}) {
 
   Object.entries(project.memberRoles || {}).forEach(([identity, role]) => {
     const normalized = text(identity);
-    if (!normalized || byDisplayName.has(normalized)) return;
+    if (!normalized) return;
+    const existing = [...byDisplayName.values()].find((member) => member.identities.includes(normalized));
+    if (existing) {
+      existing.role = text(role, existing.role);
+      return;
+    }
+    if (byDisplayName.has(normalized)) return;
     byDisplayName.set(normalized, {
       name: normalized,
       identities: [normalized],
@@ -216,8 +222,8 @@ function getCommentEntries(store, projects) {
   return projects.flatMap((project) =>
     projectTasks(project).flatMap((task) =>
       list(task.comments).map((comment, index) => ({
-        id: `${project.id}-${task.id}-${comment.time || index}`,
-        projectId: project.id,
+        id: `${projectId(project)}-${task.id}-${comment.time || index}`,
+        projectId: projectId(project),
         projectName: text(project.name, "未命名项目"),
         taskId: task.id,
         taskTitle: text(task.title, "未命名任务"),
@@ -460,7 +466,12 @@ function buildSchedules(projects, tasks) {
 }
 
 function buildBoards(store, projects) {
-  const projectMap = new Map(projects.map((project) => [String(project.id), project]));
+  const projectMap = new Map(
+    projects.flatMap((project) => [projectId(project), project.projectId, project.projectUid, project.project_id, project.project_uid, project.uid]
+      .map(text)
+      .filter(Boolean)
+      .map((id) => [id, project]))
+  );
   const rows = list(store?.boards).map((board) => {
     const project = projectMap.get(String(board.projectId));
     return {
@@ -521,7 +532,7 @@ function buildTags(store, projects) {
       name: text(tag.name, "未命名标签"),
       color: text(tag.color, "#64748b"),
       count: rows.length,
-      projects: rows.map((row) => ({ id: row.project.id, name: text(row.project.name, "未命名项目") })),
+      projects: rows.map((row) => ({ id: projectId(row.project), name: text(row.project.name, "未命名项目") })),
       status: rows.length ? "healthy" : "muted"
     };
   });

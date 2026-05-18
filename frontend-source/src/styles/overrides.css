@@ -10708,3 +10708,327 @@ body {
   }
 }
 
+/* Acceptance UI 09: low-height dialog containment and scroll reachability. */
+.el-overlay-dialog:has(> .collaboration-dialog-shell),
+.el-overlay-dialog:has(> .contacts-directory-shell) {
+  display: grid !important;
+  place-items: center !important;
+  padding: 18px !important;
+}
+
+.collaboration-dialog-shell.el-dialog,
+.collaboration-dialog-shell .el-dialog,
+.template-share-shell.el-dialog,
+.template-share-shell .el-dialog {
+  max-width: calc(100vw - 32px) !important;
+  max-height: calc(100vh - 36px) !important;
+  margin: auto !important;
+  overflow: hidden !important;
+}
+
+.collaboration-dialog-shell .el-dialog__body,
+.template-share-shell .el-dialog__body {
+  max-height: calc(100vh - 36px) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.collaboration-directory {
+  min-height: 0 !important;
+  height: min(640px, calc(100vh - 36px)) !important;
+  max-height: calc(100vh - 36px) !important;
+  overflow: hidden !important;
+}
+
+.collaboration-rail,
+.collaboration-picker,
+.collaboration-permissions,
+.template-share-directory,
+.template-share-friends,
+.template-share-permissions {
+  min-height: 0 !important;
+}
+
+.collaboration-rail {
+  overflow: auto !important;
+}
+
+.permission-list {
+  min-height: 0 !important;
+}
+
+.contacts-directory-shell.el-dialog,
+.contacts-directory-shell .el-dialog,
+.contacts-directory-shell.el-dialog.is-fullscreen,
+.contacts-directory-shell .el-dialog.is-fullscreen {
+  max-width: calc((100vw / var(--scale-factor)) - 32px) !important;
+  max-height: calc((100vh / var(--scale-factor)) - 36px) !important;
+  overflow: hidden !important;
+}
+
+.contacts-directory-shell .el-dialog__body {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.contacts-directory {
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.contacts-rail,
+.contacts-group-nav {
+  min-height: 0 !important;
+  overflow: auto !important;
+}
+
+.contacts-content {
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  place-items: stretch !important;
+  gap: 14px !important;
+  min-height: 0 !important;
+}
+
+.contacts-table {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  min-height: 0 !important;
+}
+
+.contacts-table-body {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+}
+
+.contacts-directory-shell.is-launcher-source.el-dialog,
+.contacts-directory-shell.is-launcher-source .el-dialog,
+.contacts-directory-shell.is-launcher-source.el-dialog.is-fullscreen,
+.contacts-directory-shell.is-launcher-source .el-dialog.is-fullscreen {
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.contacts-directory-shell.is-launcher-source .el-dialog__body {
+  max-height: calc((100vh / var(--scale-factor)) - 36px) !important;
+  overflow: hidden !important;
+}
+
+.template-share-page {
+  height: min(620px, calc(100vh - 36px)) !important;
+  max-height: calc(100vh - 36px) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.template-share-list,
+.template-share-permissions {
+  min-height: 0 !important;
+  overflow: auto !important;
+}
+
+.template-share-dropzone {
+  min-height: min(212px, 34vh) !important;
+}
+
+.modal-shell.el-dialog,
+.project-modal.el-dialog,
+.modal-shell .el-dialog,
+.project-modal .el-dialog {
+  max-height: calc(100vh - 36px) !important;
+}
+
+.modal-shell .modal-card,
+.project-create-card,
+.task-create-card {
+  max-height: calc(100vh - 36px) !important;
+  overflow: auto !important;
+}
+
+.modal-actions {
+  flex-shrink: 0;
+}
+
+.task-create-card .v6-task-create-row {
+  grid-template-columns: minmax(150px, 230px) minmax(220px, 1fr) 84px !important;
+}
+
+@media (max-width: 980px), (max-height: 620px) {
+  .el-overlay-dialog:has(> .collaboration-dialog-shell),
+  .el-overlay-dialog:has(> .contacts-directory-shell),
+  .el-overlay-dialog:has(> .template-share-shell) {
+    padding: 8px !important;
+  }
+
+  .collaboration-dialog-shell.el-dialog,
+  .collaboration-dialog-shell .el-dialog,
+  .template-share-shell.el-dialog,
+  .template-share-shell .el-dialog {
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+  }
+
+  .collaboration-dialog-shell .el-dialog__body,
+  .template-share-shell .el-dialog__body {
+    max-height: calc(100vh - 16px) !important;
+  }
+
+  .collaboration-directory,
+  .template-share-page {
+    height: min(560px, calc(100vh - 16px)) !important;
+    max-height: calc(100vh - 16px) !important;
+  }
+
+  .contacts-directory-shell.el-dialog,
+  .contacts-directory-shell .el-dialog,
+  .contacts-directory-shell.el-dialog.is-fullscreen,
+  .contacts-directory-shell .el-dialog.is-fullscreen {
+    width: calc((100vw / var(--scale-factor)) - 16px) !important;
+    height: calc((100vh / var(--scale-factor)) - 16px) !important;
+    max-width: calc((100vw / var(--scale-factor)) - 16px) !important;
+    max-height: calc((100vh / var(--scale-factor)) - 16px) !important;
+    margin: 8px auto !important;
+  }
+
+  .contacts-content {
+    padding: 54px 18px 20px !important;
+    gap: 10px !important;
+  }
+
+  .contacts-table {
+    padding: 18px !important;
+  }
+
+  .template-share-page {
+    grid-template-columns: 150px minmax(0, 1fr) 260px !important;
+  }
+
+  .template-share-directory {
+    padding: 54px 12px 12px !important;
+  }
+
+  .template-share-friends {
+    padding: 18px !important;
+  }
+
+  .template-share-permissions {
+    padding: 54px 14px 14px !important;
+  }
+
+  .task-create-card .v6-task-create-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .task-create-card .v6-task-create-row .task-submit {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 760px), (max-height: 520px) {
+  .collaboration-directory,
+  .template-share-page {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    overflow: auto !important;
+  }
+
+  .collaboration-directory {
+    grid-template-areas:
+      "rail"
+      "picker"
+      "permissions" !important;
+  }
+
+  .collaboration-rail,
+  .collaboration-picker,
+  .collaboration-permissions,
+  .template-share-directory,
+  .template-share-friends,
+  .template-share-permissions {
+    padding: 14px !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+  }
+
+  .collaboration-picker {
+    grid-template-rows: auto minmax(180px, 1fr) auto !important;
+  }
+
+  .collaboration-permissions,
+  .template-share-permissions {
+    border-top: 1px solid var(--v16-line) !important;
+  }
+
+  .contacts-directory {
+    grid-template-columns: 1fr !important;
+  }
+
+  .contacts-rail {
+    width: 100% !important;
+    max-height: 118px !important;
+    padding: 12px !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--v16-line) !important;
+  }
+
+  .contacts-group-nav {
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)) !important;
+  }
+
+  .contacts-group-item {
+    min-height: 34px !important;
+  }
+
+  .contacts-content {
+    padding: 44px 12px 12px !important;
+  }
+
+  .contacts-close-x {
+    top: 10px !important;
+    right: 12px !important;
+  }
+
+  .contacts-titlebar {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .contacts-table {
+    padding: 12px !important;
+    overflow: auto !important;
+  }
+
+  .contacts-row {
+    min-width: 760px;
+  }
+
+  .modal-shell .modal-card,
+  .project-create-card,
+  .task-create-card {
+    max-height: calc(100vh - 24px) !important;
+  }
+
+  .project-form-grid,
+  .edit-project-grid,
+  .create-mode-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .project-form-grid label,
+  .edit-project-grid label {
+    grid-column: auto !important;
+  }
+
+  .modal-actions {
+    justify-content: stretch !important;
+  }
+
+  .modal-actions button {
+    flex: 1 1 120px;
+  }
+}
+

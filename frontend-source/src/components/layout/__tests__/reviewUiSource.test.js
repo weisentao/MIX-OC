@@ -589,9 +589,7 @@ describe("diff review UI source contracts", () => {
     assert.match(memberAvatars, /default:\s*3/);
     assert.match(memberAvatars, /const emit = defineEmits\(\["open-members"\]\)/);
     assert.match(memberAvatars, /@click="selectMember\(member\)"/);
-    assert.match(memberAvatars, /@click="openMembers"/);
-    assert.match(memberAvatars, /@keydown\.enter\.prevent="openMembers"/);
-    assert.match(memberAvatars, /@keydown\.space\.prevent="openMembers"/);
+    assert.match(memberAvatars, /type="button"[\s\S]*class="schedule-member-avatar is-more"[\s\S]*@click="openMembers"/);
     assert.match(memberAvatars, /moreLabel/);
     assert.match(memberAvatars, />\{\{\s*moreLabel\s*\}\}<\/button>/);
     assert.doesNotMatch(memberAvatars, />\+\{\{\s*remainingCount\s*\}\}<\/button>/);
@@ -949,6 +947,34 @@ describe("diff review UI source contracts", () => {
     assert.match(css, /display:\s*grid[^}]*place-items:\s*center/s);
     assert.match(css, /\.contacts-search/s);
     assert.match(css, /\.contacts-care-action\.is-active/s);
+  });
+
+  it("keeps the contacts directory as an eight-column clickable table", async () => {
+    const contactsDialog = await source("../../dialogs/ContactsDialog.vue");
+    const headerLabels = ["头像", "姓名", "部门", "邮箱", "MBTI", "职务", "手机号", "关注"];
+    const headerBlock = contactsDialog.match(/<div class="contacts-row contacts-head-row"[\s\S]*?<\/div>/)?.[0] || "";
+
+    assert.equal((headerBlock.match(/role="columnheader"/g) || []).length, 8);
+    headerLabels.forEach((label) => assert.match(headerBlock, new RegExp(`>${label}<`)));
+    assert.match(contactsDialog, /class="contacts-row contacts-person-row"[\s\S]*role="row"[\s\S]*tabindex="0"[\s\S]*@click="openProfile\(user\)"/);
+    assert.match(contactsDialog, /@keydown\.enter\.prevent="openProfile\(user\)"/);
+    assert.match(contactsDialog, /@keydown\.space\.prevent="openProfile\(user\)"/);
+    assert.match(contactsDialog, /class="contact-avatar-pic"/);
+    assert.match(contactsDialog, /class="contact-phone-cell"/);
+    assert.match(contactsDialog, /@click\.stop="inviteUser\(user\)"/);
+    assert.match(contactsDialog, /@click\.stop="toggleCare\(user\)"/);
+    assert.match(contactsDialog, /grid-template-columns:[\s\S]*42px[\s\S]*minmax\(70px,\s*0\.78fr\)[\s\S]*minmax\(88px,\s*0\.8fr\)[\s\S]*minmax\(150px,\s*1\.36fr\)[\s\S]*minmax\(52px,\s*0\.42fr\)[\s\S]*minmax\(70px,\s*0\.62fr\)[\s\S]*minmax\(112px,\s*0\.86fr\)[\s\S]*76px\s*!important/);
+  });
+
+  it("keeps directory-style dialogs centered and appended to body", async () => {
+    const contactsDialog = await source("../../dialogs/ContactsDialog.vue");
+    const memberDialog = await source("../../dialogs/MemberPermissionsDialog.vue");
+    const templateShareDialog = await source("../../dialogs/TemplateShareDialog.vue");
+
+    for (const dialog of [contactsDialog, memberDialog, templateShareDialog]) {
+      assert.match(dialog, /<el-dialog[\s\S]*align-center/);
+      assert.match(dialog, /<el-dialog[\s\S]*append-to-body/);
+    }
   });
 
   it("opens a centered collaboration selector and permission dialog from the project member entry", async () => {

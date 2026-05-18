@@ -178,6 +178,7 @@ function syncShare() {
     v-model="visible"
     class="template-share-shell"
     align-center
+    append-to-body
     width="min(1160px, calc(100vw - 56px))"
     :show-close="false"
     @open="resetFromStore"
