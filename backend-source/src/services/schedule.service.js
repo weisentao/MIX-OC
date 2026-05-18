@@ -1,5 +1,5 @@
 import { isMySQLReady, mysqlPool } from "../db/mysql.js";
-import { assertRoleCan } from "../middlewares/auth.js";
+import { canExport } from "../middlewares/auth.js";
 import { createScheduleCommentNotificationEvents } from "./notification-events.service.js";
 import { createTask, normalizeWorkspaceDateForSql } from "./workspace.service.js";
 
@@ -808,7 +808,9 @@ function requireScheduleExportPermission(projectRole = "none", auth = {}) {
     throw forbidden("No permission to access project schedule");
   }
 
-  assertRoleCan(auth, "export");
+  if (!canExport(auth)) {
+    throw forbidden("No permission to export");
+  }
   return role;
 }
 
