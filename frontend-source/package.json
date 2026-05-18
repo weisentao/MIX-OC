@@ -1,0 +1,34 @@
+{
+  "name": "xjg-task-board",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "mock:db": "node scripts/generate-mock-db.mjs",
+    "mock": "npm run mock:db && node mock/server.cjs",
+    "test:boards": "node --test src/features/collab-board/__tests__/boardModel.test.js",
+    "test:frontend": "npm run test:schedule && npm run test:boards && node --test src/stores/workspace/actions/__tests__/frontendRegression.test.js src/stores/workspace/actions/__tests__/taskActions.test.js src/stores/workspace/actions/__tests__/templateTaskActions.test.js src/stores/workspace/__tests__/templateVisibility.test.js src/components/layout/__tests__/reviewUiSource.test.js",
+    "test:schedule": "node --test src/utils/schedule/__tests__/dateRange.test.js src/utils/schedule/__tests__/scheduleHoliday.test.js src/utils/schedule/__tests__/timelineLayout.test.js src/utils/schedule/__tests__/scheduleNormalize.test.js src/utils/schedule/__tests__/snapshotDiff.test.js src/utils/schedule/scheduleExport.test.js src/services/__tests__/scheduleApi.test.js src/api/scheduleApi.test.js src/stores/workspace/actions/__tests__/scheduleActions.test.js",
+    "build": "set \"PATH=C:\\Users\\pveadmin\\Desktop\\mutou\\.runtime\\node\\node-v24.15.0-win-x64;%PATH%\" && vite build",
+    "build:approval": "set \"PATH=C:\\Users\\pveadmin\\Desktop\\mutou\\.runtime\\node\\node-v24.15.0-win-x64;%PATH%\" && npm run build && node scripts\\make-approval-package.mjs",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "animate.css": "^4.1.1",
+    "axios": "^1.12.2",
+    "element-plus": "^2.11.7",
+    "pinia": "^2.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "video.js": "^8.23.4",
+    "vite": "^5.4.21",
+    "vue": "^3.5.22",
+    "vue-router": "^4.6.3"
+  },
+  "devDependencies": {
+    "json-server": "^0.17.4"
+  }
+}

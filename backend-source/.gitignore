@@ -1,0 +1,10 @@
+node_modules/
+.env
+data/runtime/**
+data/ai-v1/**
+data/storage-v1/files/**
+data/storage-v1/metadata/**
+!data/runtime/.gitkeep
+!data/ai-v1/.gitkeep
+!data/storage-v1/files/.gitkeep
+!data/storage-v1/metadata/.gitkeep

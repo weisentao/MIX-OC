@@ -1,0 +1,47 @@
+{
+  "name": "xjg-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local backend service for xjg frontend (phase 1).",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "start:production": "node scripts/start-production.mjs",
+    "db:check:production": "node scripts/check-production-mysql.mjs",
+    "db:check:schedule": "node scripts/check-schedule-schema.mjs",
+    "db:import:company-users": "node scripts/import-company-users.mjs",
+    "db:prepare:production": "node scripts/prepare-production-db.mjs",
+    "db:repair-admin-login": "node scripts/repair-admin-login.mjs",
+    "smoke:production": "node scripts/smoke-production-db.mjs",
+    "smoke:auth": "node scripts/smoke-auth.mjs",
+    "smoke:auth-flows": "node scripts/smoke-auth-flows.mjs",
+    "smoke:workspace": "node scripts/smoke-workspace.mjs",
+    "smoke:workspace-taxonomy": "node scripts/smoke-workspace-taxonomy.mjs",
+    "smoke:frontend-contract": "node scripts/smoke-frontend-contract.mjs",
+    "smoke:ai-deepseek": "node scripts/smoke-ai-deepseek.mjs",
+    "smoke:local-proxy-acceptance": "node scripts/smoke-local-proxy-acceptance.mjs",
+    "smoke:schedule": "node scripts/smoke-schedule.mjs",
+    "smoke:schedule-library": "node scripts/smoke-schedule-library.mjs",
+    "smoke:boards": "node scripts/smoke-boards.mjs",
+    "verify:production": "node scripts/verify-production-ready.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "bullmq": "^5.12.15",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.3",
+    "winston": "^3.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}

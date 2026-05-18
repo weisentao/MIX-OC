@@ -1,0 +1,247 @@
+@import "./management-console.css";
+
+.console-scope-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 6px 12px;
+  color: #b5003a;
+  background: linear-gradient(90deg, var(--mc-primary-soft), var(--mc-warning-soft) 58%, var(--mc-success-soft));
+  border: 1px solid var(--mc-pink-line);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.console-secondary-section {
+  margin-top: 16px;
+}
+
+/* v16 console visual integration: gray-white panels, blue actions, pink selected state. */
+.console-admin-frame,
+.console-admin-frame .console-crud-modal {
+  --mc-page-bg: #f6f8fb;
+  --mc-workspace-bg: #f6f8fb;
+  --mc-side-bg: #ffffff;
+  --mc-card: #ffffff;
+  --mc-panel: #f9fbfd;
+  --mc-line: #dce5ef;
+  --mc-line-strong: #c7d4e2;
+  --mc-text: #162235;
+  --mc-muted: #6e7d90;
+  --mc-primary: #ff0050;
+  --mc-primary-soft: #fff0f6;
+  --mc-primary-line: rgba(255, 0, 80, 0.24);
+  --mc-primary-strong: #3f9ff2;
+  --mc-primary-hover: #2388de;
+  --mc-info: #3f9ff2;
+  --mc-info-soft: #eaf5ff;
+  --mc-info-line: rgba(63, 159, 242, 0.22);
+  --mc-success: #28b875;
+  --mc-success-soft: #eaf8f0;
+  --mc-shadow: 0 16px 40px rgba(31, 50, 73, 0.1);
+  --mc-shadow-soft: 0 6px 18px rgba(31, 50, 73, 0.06);
+  --mc-radius: 8px;
+  --mc-focus-ring: rgba(63, 159, 242, 0.16);
+}
+
+.console-admin-frame {
+  background: var(--mc-page-bg) !important;
+}
+
+.console-side-card,
+.console-main-card,
+.console-filter-bar,
+.console-data-card,
+.console-detail-panel,
+.console-stat-card,
+.console-dashboard-panel,
+.console-chart-card,
+.console-table-card,
+.console-crud-modal,
+.console-modal-card {
+  border-color: var(--mc-line) !important;
+  border-radius: 16px !important;
+  background-color: #ffffff !important;
+  box-shadow: var(--mc-shadow-soft) !important;
+}
+
+.console-main-card,
+.console-data-card,
+.console-detail-panel,
+.console-crud-modal,
+.console-modal-card {
+  box-shadow: var(--mc-shadow) !important;
+}
+
+.console-side-card,
+.console-filter-bar,
+.console-card-head,
+.console-detail-head,
+.console-table-head,
+.console-crud-head {
+  background: linear-gradient(180deg, #ffffff 0%, var(--mc-panel) 100%) !important;
+  border-color: var(--mc-line) !important;
+}
+
+.console-nav-item,
+.console-filter-pills button,
+.console-tab-button,
+.console-primary-button,
+.console-ghost-button,
+.console-icon-button,
+.console-row-actions button,
+.console-context-tree button,
+.console-detail-list button,
+.console-crud-modal button,
+.console-crud-modal input,
+.console-crud-modal select,
+.console-crud-modal textarea,
+.console-scope-pill {
+  border-radius: var(--mc-radius) !important;
+}
+
+.console-nav-item {
+  min-height: 34px !important;
+}
+
+.console-nav-item.is-active,
+.console-nav-item.router-link-active,
+.console-filter-pills button.is-active,
+.console-tab-button.is-active,
+.console-row.is-selected,
+.console-detail-list button.is-active,
+.console-context-tree button.is-active,
+.console-scope-pill {
+  color: var(--mc-primary) !important;
+  border-color: var(--mc-primary-line) !important;
+  background: var(--mc-primary-soft) !important;
+  box-shadow:
+    inset 3px 0 0 rgba(255, 0, 80, 0.78),
+    0 8px 18px rgba(31, 50, 73, 0.06) !important;
+}
+
+.console-primary-button,
+.console-crud-modal button[type="submit"],
+.console-crud-modal .is-primary {
+  color: #ffffff !important;
+  border-color: var(--mc-info) !important;
+  background: var(--mc-info) !important;
+  box-shadow: 0 10px 22px rgba(63, 159, 242, 0.2) !important;
+}
+
+.console-primary-button:hover,
+.console-crud-modal button[type="submit"]:hover,
+.console-crud-modal .is-primary:hover {
+  border-color: var(--mc-primary-hover) !important;
+  background: var(--mc-primary-hover) !important;
+}
+
+.console-ghost-button:hover,
+.console-icon-button:hover,
+.console-row-actions button:hover,
+.console-context-tree button:hover,
+.console-detail-list button:hover,
+.console-filter-pills button:hover,
+.console-tab-button:hover {
+  color: var(--mc-info) !important;
+  border-color: var(--mc-info-line) !important;
+  background: var(--mc-info-soft) !important;
+  box-shadow: 0 8px 18px rgba(31, 50, 73, 0.06) !important;
+}
+
+.console-admin-frame input,
+.console-admin-frame select,
+.console-admin-frame textarea,
+.console-crud-modal input,
+.console-crud-modal select,
+.console-crud-modal textarea {
+  min-width: 0;
+  border-color: var(--mc-line) !important;
+  background: #ffffff !important;
+}
+
+.console-admin-frame input:focus,
+.console-admin-frame select:focus,
+.console-admin-frame textarea:focus,
+.console-crud-modal input:focus,
+.console-crud-modal select:focus,
+.console-crud-modal textarea:focus {
+  border-color: rgba(63, 159, 242, 0.62) !important;
+  outline: 0 !important;
+  box-shadow: 0 0 0 3px var(--mc-focus-ring) !important;
+}
+
+.console-brand strong,
+.console-brand small,
+.console-nav-item span,
+.console-page-title h1,
+.console-page-title p,
+.console-card-head h2,
+.console-card-head h3,
+.console-card-head p,
+.console-detail-head h2,
+.console-detail-head h3,
+.console-detail-head p,
+.console-row span,
+.console-row strong,
+.console-table-cell,
+.console-stat-card span,
+.console-stat-card strong,
+.console-scope-pill {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.console-row,
+.console-table-row {
+  min-height: 40px !important;
+}
+
+.console-table-head,
+.console-table-header,
+.console-row.is-header {
+  min-height: 38px !important;
+  color: var(--mc-muted) !important;
+  background: #f3f6fa !important;
+}
+
+.console-row,
+.console-table-row,
+.console-detail-list button,
+.console-context-tree button {
+  border-color: var(--mc-line) !important;
+}
+
+.console-row:hover,
+.console-table-row:hover {
+  background: var(--mc-info-soft) !important;
+}
+
+.console-crud-modal {
+  position: fixed !important;
+  inset: 50% auto auto 50% !important;
+  width: min(680px, calc(100vw - 32px)) !important;
+  max-height: calc(100vh - 36px) !important;
+  overflow: auto !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+@media (max-width: 760px) {
+  .console-crud-modal {
+    width: min(100%, calc(100vw - 24px)) !important;
+    max-height: calc(100vh - 24px) !important;
+  }
+
+  .console-page-title h1,
+  .console-page-title p,
+  .console-card-head h2,
+  .console-card-head h3,
+  .console-card-head p {
+    white-space: normal;
+  }
+}

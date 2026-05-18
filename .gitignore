@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+frontend-dist/
+coverage/
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Runtime data, logs, and local diagnostics
+*.log
+*.err
+*.out
+*.pid
+data/runtime/**
+data/ai-v1/**
+data/storage-v1/files/**
+data/storage-v1/metadata/**
+!data/runtime/.gitkeep
+!data/ai-v1/.gitkeep
+!data/storage-v1/files/.gitkeep
+!data/storage-v1/metadata/.gitkeep
+
+# Local agent and QA artifacts
+.codex-logs/
+.codex-qa/
+.gstack/
+.qa-artifacts/
+output/
+tmp/
+tmp*
+
+# Packaged artifacts
+*.tgz
+*.tar
+*.tar.gz
+*.zip
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

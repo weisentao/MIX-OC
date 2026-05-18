@@ -1,0 +1,249 @@
+# Board API
+
+This document covers the first-release database-backed collaboration board API. The same handlers are exposed under both root paths and workspace paths:
+
+- `/boards...`
+- `/workspace/boards...`
+
+The frontend currently calls the `/workspace/boards...` variants through `workspaceApi`.
+
+## API List
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/boards` | List boards visible to the current user. Optional `?projectId=` filters by project. |
+| `POST` | `/boards` | Create a board for a project or module scope. |
+| `GET` | `/boards/:boardId` | Read one board, including content and sharing metadata. |
+| `PATCH` | `/boards/:boardId` | Save board content or metadata. |
+| `PUT` | `/boards/:boardId` | Same as `PATCH`, kept for clients that use PUT updates. |
+| `DELETE` | `/boards/:boardId` | Soft-delete/archive a board. |
+| `PUT` | `/boards/:boardId/shares` | Replace board sharing entries. |
+| `POST` | `/boards/:boardId/shares` | Same as `PUT /shares`, kept for clients that post share updates. |
+| `GET` | `/boards/:boardId/history` | List saved board versions/history. |
+
+Workspace-prefixed equivalents:
+
+- `GET /workspace/boards`
+- `POST /workspace/boards`
+- `GET /workspace/boards/:boardId`
+- `PATCH /workspace/boards/:boardId`
+- `PUT /workspace/boards/:boardId`
+- `DELETE /workspace/boards/:boardId`
+- `PUT /workspace/boards/:boardId/shares`
+- `POST /workspace/boards/:boardId/shares`
+- `GET /workspace/boards/:boardId/history`
+
+## Examples
+
+### List Boards
+
+Request:
+
+```http
+GET /workspace/boards?projectId=project-1001
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+[
+  {
+    "id": "SMOKE_BOARD_board_001",
+    "boardId": "SMOKE_BOARD_board_001",
+    "scopeKey": "project:project-1001",
+    "scopeType": "project",
+    "projectId": "project-1001",
+    "projectUid": "project-1001",
+    "moduleKey": "",
+    "boardKind": "personal",
+    "ownerId": "u-admin",
+    "ownerName": "admin",
+    "isDefault": false,
+    "title": "Project board",
+    "status": "active",
+    "visibility": "project-members",
+    "editableRoles": ["manager", "editor"],
+    "readonlyRoles": ["readonly"],
+    "sharedWith": [],
+    "elements": [],
+    "appState": { "viewBackgroundColor": "#ffffff" },
+    "files": {},
+    "lastVersion": 1
+  }
+]
+```
+
+### Create Board
+
+Request:
+
+```http
+POST /workspace/boards
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "id": "SMOKE_BOARD_board_001",
+  "projectId": "project-1001",
+  "scopeType": "project",
+  "title": "Project board",
+  "ownerId": "u-admin",
+  "ownerName": "admin",
+  "elements": [],
+  "appState": { "viewBackgroundColor": "#ffffff" },
+  "files": {}
+}
+```
+
+Response: `201 Created`
+
+```json
+{
+  "id": "SMOKE_BOARD_board_001",
+  "scopeType": "project",
+  "projectId": "project-1001",
+  "title": "Project board",
+  "ownerId": "u-admin",
+  "ownerName": "admin",
+  "elements": [],
+  "appState": { "viewBackgroundColor": "#ffffff" },
+  "files": {},
+  "lastVersion": 1
+}
+```
+
+### Save Board Content
+
+Request:
+
+```http
+PATCH /workspace/boards/SMOKE_BOARD_board_001
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "title": "Project board saved",
+  "elements": [{ "id": "SMOKE_BOARD_rect_001", "type": "rectangle", "version": 1 }],
+  "appState": { "viewBackgroundColor": "#f8fafc" },
+  "files": {}
+}
+```
+
+Response: `200 OK`
+
+```json
+{
+  "id": "SMOKE_BOARD_board_001",
+  "title": "Project board saved",
+  "elements": [{ "id": "SMOKE_BOARD_rect_001", "type": "rectangle", "version": 1 }],
+  "appState": { "viewBackgroundColor": "#f8fafc" },
+  "files": {},
+  "lastVersion": 2
+}
+```
+
+### Share Board
+
+Request:
+
+```http
+PUT /workspace/boards/SMOKE_BOARD_board_001/shares
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "entries": [
+    { "userId": "u-linxin", "userName": "林鑫", "permission": "readonly" },
+    { "userId": "u-editor", "userName": "Editor", "permission": "edit" }
+  ]
+}
+```
+
+Response: `200 OK`
+
+```json
+{
+  "id": "SMOKE_BOARD_board_001",
+  "sharedWith": [
+    { "userId": "u-linxin", "userName": "林鑫", "permission": "readonly" },
+    { "userId": "u-editor", "userName": "Editor", "permission": "edit" }
+  ]
+}
+```
+
+### Read Board As Shared Member
+
+Request:
+
+```http
+GET /workspace/boards/SMOKE_BOARD_board_001
+Authorization: Bearer <member-token>
+```
+
+Response: `200 OK` when the member is project member or has a board share. Non-members without a share receive `403`.
+
+### History
+
+Request:
+
+```http
+GET /workspace/boards/SMOKE_BOARD_board_001/history
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+[
+  {
+    "id": "board-history-...",
+    "boardId": "SMOKE_BOARD_board_001",
+    "version": 2,
+    "actorUserId": "u-admin",
+    "actionType": "save",
+    "changeSummary": "save board",
+    "elements": [{ "id": "SMOKE_BOARD_rect_001", "type": "rectangle", "version": 1 }],
+    "files": {},
+    "appState": { "viewBackgroundColor": "#f8fafc" },
+    "createdAt": "2026-05-13 10:00:00"
+  }
+]
+```
+
+## Permission Rules
+
+- `owner`: board owner or system admin. Can read, edit, delete, share, and view history.
+- `edit`: explicit board share with `edit`, or project role `manager` / `editor`. Can read and save board content.
+- `readonly`: explicit board share with `readonly`, or project role `readonly`. Can read board content and history, but cannot save.
+- Project members can read project boards according to their project role.
+- Non-members without explicit board sharing are rejected with `403`.
+
+## MySQL Availability
+
+All board endpoints require MySQL. If MySQL is not ready, the API returns:
+
+```json
+{
+  "message": "MySQL unavailable for board API"
+}
+```
+
+with HTTP `503`.
+
+For production launch, this is a blocking state. `/appState/main` fallback must not be treated as a formal board database pass.
+
+## Phase 2
+
+Realtime collaboration is not included in the first release. Phase 2 should cover:
+
+- WebSocket transport.
+- Conflict merging.
+- Cursor synchronization.
+- Online member presence.
