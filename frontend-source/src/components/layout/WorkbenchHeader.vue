@@ -8,7 +8,6 @@ import notificationApi from "@/services/notificationApi";
 import { openNoticeLink } from "@/utils/noticeCarousel";
 
 const emit = defineEmits([
-  "create-task",
   "delete-project",
   "archive-project",
   "open-board",
@@ -268,7 +267,6 @@ function openServerFolder() {
         <span class="project-label">项目名称</span>
         <strong>{{ store.activeProjectName }}</strong>
         <div class="project-inline-actions" aria-label="项目操作">
-          <button class="project-action-create" title="创建任务清单" type="button" :disabled="!store.canEditTask" @click="emit('create-task')"><i></i></button>
           <button v-if="store.isAdmin" class="project-action-delete danger" title="删除项目" type="button" @click="emit('delete-project')"><i></i></button>
           <button class="project-action-archive" title="归档项目" type="button" :disabled="!store.canManageProject" @click="emit('archive-project')"><i></i></button>
           <button class="project-action-board" title="协作画板" type="button" :disabled="!store.canViewBoard" @click="emit('open-board')"><i></i></button>

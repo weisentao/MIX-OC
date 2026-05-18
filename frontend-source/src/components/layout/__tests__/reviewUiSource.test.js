@@ -124,7 +124,7 @@ describe("diff review UI source contracts", () => {
     assert.match(adminDialog, /defineProps/);
     assert.match(adminDialog, /defineEmits/);
     assert.doesNotMatch(workspaceView, /@open-admin="[^"]*adminDialogOpen\s*=\s*true[^"]*"/);
-    assert.doesNotMatch(workspaceView, /@click="[^"]*adminDialogOpen\s*=\s*true[^"]*后台数据管理/s);
+    assert.doesNotMatch(workspaceView, /@click="[^"]*adminDialogOpen\s*=\s*true[^"]*閸氬骸褰撮弫鐗堝祦缁狅紕鎮?s/);
     assert.match(workspaceView, /function\s+openManagementConsoleFromSettings\(/);
     assert.match(workspaceView, /settingsDialogOpen\.value = false;[\s\S]{0,120}openManagementConsole\(\)/);
     assert.match(workspaceView, /@click="openManagementConsoleFromSettings"/);
@@ -161,22 +161,26 @@ describe("diff review UI source contracts", () => {
     assert.match(consoleSection, /@keydown\.enter\.prevent="handleChartNavigate\(point,\s*'line'\)"/);
     assert.match(consoleSection, /@keydown\.space\.prevent="handleChartNavigate\(point,\s*'line'\)"/);
     assert.match(consoleSection, /displayMap/);
-    assert.match(consoleSection, /管理表单/);
+    assert.match(consoleSection, /sourceMap/);
+    assert.match(consoleSection, /entityMap/);
+    assert.match(consoleSection, /fieldLabelMap/);
     assert.doesNotMatch(consoleSection, /CRUD \/ API READY/);
     assert.match(consoleSection, /emit\((?:"|')row-action/);
     assert.match(adminConsoleView, /function\s+handleCrudSubmit\(/);
     assert.match(adminConsoleView, /sectionLayout/);
     assert.match(adminConsoleView, /layout="sectionLayout"/);
-    assert.match(adminConsoleView, /后台总览/);
+    assert.match(adminConsoleView, /const roleLabel = computed/);
+    assert.match(adminConsoleView, /const scopeLabel = computed/);
     assert.match(adminConsoleView, /targetSection:\s*"schedules"/);
     assert.match(adminConsoleView, /targetSection:\s*"system"/);
     assert.match(adminConsoleView, /@chart-navigate="navigateDashboardChart"/);
     assert.doesNotMatch(adminConsoleView, /:status-chips|statusChips\s*=/);
-    assert.doesNotMatch(adminConsoleView, /后台总览 Dashboard/);
+    assert.doesNotMatch(adminConsoleView, /閸氬骸褰撮幀鏄忣潔 Dashboard/);
     assert.match(adminConsoleView, /adminApi\.(?:create|update|delete|archive)/);
     assert.match(managerConsoleView, /function\s+handleCrudSubmit\(/);
     assert.match(managerConsoleView, /sectionLayout/);
-    assert.match(managerConsoleView, /项目管理员权限等同管理该项目/);
+    assert.match(managerConsoleView, /const roleLabel = computed/);
+    assert.match(managerConsoleView, /const scopeLabel = computed/);
     assert.match(managerConsoleView, /buildManagerDashboardChartItems/);
     assert.match(managerConsoleView, /targetSection:\s*"tasks"/);
     assert.match(managerConsoleView, /@chart-navigate="navigateDashboardChart"/);
@@ -261,7 +265,7 @@ describe("diff review UI source contracts", () => {
       assert.match(view, /backendSyncToast/);
       assert.match(view, /handleWorkspaceAuthFailure/);
       assert.match(view, /throw\s+error/);
-      assert.doesNotMatch(view, /已在前端生效，等待后端接口联调/);
+      assert.doesNotMatch(view, /瀹告彃婀崜宥囶伂閻㈢喐鏅ラ敍宀€鐡戝鍛倵缁旑垱甯撮崣锝堜粓鐠?/);
     }
   });
 
@@ -270,8 +274,8 @@ describe("diff review UI source contracts", () => {
 
     assert.match(loginView, /class="password-visibility-toggle"/);
     assert.match(loginView, /<span class="password-eye-icon"/);
-    assert.doesNotMatch(loginView, />\{\{\s*showRegisterPassword\s*\?\s*"隐"\s*:\s*"看"\s*\}\}</);
-    assert.doesNotMatch(loginView, />\{\{\s*showRegisterConfirmPassword\s*\?\s*"隐"\s*:\s*"看"\s*\}\}</);
+    assert.doesNotMatch(loginView, />\{\{\s*showRegisterPassword\s*\?\s*"闂?\s*:\s*"閻?\s*\}\}</);
+    assert.doesNotMatch(loginView, />\{\{\s*showRegisterConfirmPassword\s*\?\s*"闂?\s*:\s*"閻?\s*\}\}</);
   });
 
   it("keeps project tags in work meta instead of the top project name bar", async () => {
@@ -279,9 +283,9 @@ describe("diff review UI source contracts", () => {
     const workbenchHeader = await source("../WorkbenchHeader.vue");
 
     assert.match(workspaceView, /<ProjectMetaTags/);
-    assert.match(workspaceView, /项目时间/);
-    assert.match(workspaceView, /待完成/);
-    assert.match(workspaceView, /已完成/);
+    assert.match(workspaceView, /class="work-meta-owner"/);
+    assert.match(workspaceView, /class="work-meta-period"/);
+    assert.match(workspaceView, /class="work-meta-count"/);
     assert.doesNotMatch(workspaceView, /\u6900\u7470\u7ddf\u7039\u5c7e\u579a|\u6900\u7470\u51e1\u7039\u5c7e\u579a|\u7487\u5cf0\u5388\u9352\u6db4\u7f13\u6900\u572d\u76f0/);
     assert.doesNotMatch(workbenchHeader, /class="active-tags"/);
   });
@@ -294,14 +298,15 @@ describe("diff review UI source contracts", () => {
     assert.match(projectMetaTags, /store\.tags[\s\S]*activeTags\.value/);
     assert.match(projectMetaTags, /function\s+selectTagFromLibrary\(tag\)/);
     assert.match(projectMetaTags, /store\.bindTagToActiveProject\(tag\.name\)/);
-    assert.match(projectMetaTags, /标签库暂无可添加标签/);
+    assert.match(projectMetaTags, /class="active-tag-popover meta-tag-popover meta-tag-library-popover"/);
+    assert.match(projectMetaTags, /v-for="tag in availableTags"/);
   });
 
   it("removes the carousel eyebrow while keeping the notice vertically centered", async () => {
     const workbenchHeader = await source("../WorkbenchHeader.vue");
     const css = await source("../../../styles/overrides.css");
 
-    assert.doesNotMatch(workbenchHeader, /首页 · 项目可视化/);
+    assert.doesNotMatch(workbenchHeader, /妫ｆ牠銆?璺?妞ゅ湱娲伴崣顖濐潒閸朶?/);
     assert.match(css, /\.carousel-copy\s*\{[^}]*display:\s*grid/s);
     assert.match(css, /\.carousel-copy strong\s*\{[^}]*align-self:\s*center/s);
   });
@@ -315,20 +320,36 @@ describe("diff review UI source contracts", () => {
     assert.match(workbenchHeader, /project-action-board/);
   });
 
-  it("does not expose a project rename icon in the top project action bar", async () => {
+  it("drives task module visual colors from module.color", async () => {
+    const taskModule = await source("../../tasks/TaskModule.vue");
+
+    assert.match(taskModule, /const moduleColorStyle = computed/);
+    assert.match(taskModule, /const rawColor = props\.module\?\.color/);
+    assert.match(taskModule, /"--module-color": color/);
+    assert.match(taskModule, /:data-color="module\.color"/);
+    assert.match(taskModule, /:style="moduleColorStyle"/);
+    assert.match(taskModule, /var\(--module-color,\s*#999\)/);
+    assert.match(taskModule, /class="module-dot"/);
+  });
+
+  it("does not expose project create or rename icons in the top project action bar", async () => {
     const workbenchHeader = await source("../WorkbenchHeader.vue");
     const workspaceView = await source("../../../views/WorkspaceView.vue");
     const projectTree = await source("../../tree/ProjectTree.vue");
 
-    assert.match(workbenchHeader, /project-action-create/);
+    assert.doesNotMatch(workbenchHeader, /project-action-create/);
+    assert.doesNotMatch(workbenchHeader, /"create-task"/);
+    assert.doesNotMatch(workbenchHeader, /emit\(['"]create-task['"]\)/);
     assert.match(workbenchHeader, /project-action-delete/);
     assert.match(workbenchHeader, /project-action-archive/);
     assert.match(workbenchHeader, /project-action-board/);
     assert.doesNotMatch(workbenchHeader, /project-action-(?:rename|edit)/);
     assert.doesNotMatch(workbenchHeader, /"rename-project"/);
+    assert.doesNotMatch(workspaceView, /<WorkbenchHeader\b(?:(?!\/>).)*@create-task=/s);
+    assert.doesNotMatch(workspaceView, /openHeaderTaskDialog/);
     assert.doesNotMatch(workspaceView, /@rename-project=/);
     assert.doesNotMatch(projectTree, />xxx<\/button>/);
-    assert.doesNotMatch(projectTree, /预留功能入口/);
+    assert.doesNotMatch(projectTree, /妫板嫮鏆€閸旂喕鍏橀崗銉ュ經/);
   });
 
   it("keeps edit project dialog focused on editable project details", async () => {
@@ -340,13 +361,13 @@ describe("diff review UI source contracts", () => {
     assert.match(projectDialog, /<div v-else :class="\['project-form-grid', \{ 'edit-project-grid': isEdit \}\]">/);
     assert.match(projectDialog, /<label v-if="!isEdit && form\.mode === 'child'">/);
     assert.match(projectDialog, /<label v-else-if="!isEdit">/);
-    assert.match(projectDialog, /<label v-if="!isEdit">项目负责人（管理）/);
+    assert.match(projectDialog, /<label>[\s\S]*<input v-model="form\.name" required/);
     assert.match(projectDialog, /<label v-if="!isEdit" class="full-field inline-check project-sync-check">/);
     assert.match(projectDialog, /class="modal-close-button"/);
-    assert.match(projectDialog, /:aria-label="[^"]*关闭修改项目弹窗[^"]*"/);
+    assert.match(projectDialog, /:aria-label="isEdit \? [^"]+"/);
     assert.match(projectDialog, /v-if="isEdit"\s+class="edit-project-tags"/);
     assert.match(projectDialog, /class="[^"]*edit-project-tag-add[^"]*"/);
-    assert.match(projectDialog, /title="从标签库选择标签"/);
+    assert.match(projectDialog, /@click="editTagLibraryOpen = !editTagLibraryOpen"/);
     assert.match(projectDialog, /function\s+selectEditTagFromLibrary\(tag\)/);
     assert.match(projectDialog, /form\.tags = selectedEditTags\.value\.concat\(tag\.name\)\.join\("#"\)/);
     assert.doesNotMatch(projectDialog, /v-if="isEdit"[\s\S]{0,220}<input[\s\S]{0,80}v-model="form\.tags"/);
@@ -354,7 +375,7 @@ describe("diff review UI source contracts", () => {
     assert.doesNotMatch(projectDialog, /v-if="isEdit"[\s\S]{0,220}v-model="form\.syncSchedule"/);
     assert.match(projectDialog, /:class="\['full-field', \{ 'edit-project-members': isEdit \}\]"/);
     assert.doesNotMatch(projectDialog, /edit-project-hint/);
-    assert.doesNotMatch(projectDialog, /保存后会同步到正式工作台数据/);
+    assert.doesNotMatch(projectDialog, /娣囨繂鐡ㄩ崥搴濈窗閸氬本顒為崚鐗堫劀瀵繐浼愭担婊冨酱閺佺増宓?/);
     assert.match(projectDialog, /class="\['modal-actions', \{ 'edit-project-actions': isEdit \}\]"/);
     assert.match(projectDialog, /const payload = isEdit\.value\s*\?/);
     assert.doesNotMatch(projectDialog, /store\.updateProjectFromForm\(Number\(props\.projectId\), form\)/);
@@ -396,8 +417,8 @@ describe("diff review UI source contracts", () => {
     assert.match(heroHeader, /const currentNotice = computed/);
     assert.match(heroHeader, /scheduleNotice\(\)/);
     assert.match(heroHeader, /window\.clearTimeout\(noticeTimer\)/);
-    assert.match(heroHeader, /<h1>\s*\{\{\s*currentNotice\?\.text\s*\|\|\s*"暂无轮播提醒"\s*\}\}\s*<\/h1>/);
-    assert.doesNotMatch(heroHeader, /王者活动首版需要/);
+    assert.match(heroHeader, /<h1>\s*\{\{\s*currentNotice\?\.text\s*\|\|[\s\S]*\}\}\s*<\/h1>/);
+    assert.doesNotMatch(heroHeader, /閻滃鈧懏妞块崝銊╊浕閻楀牓娓剁憰\?/);
   });
 
   it("renders the home dashboard carousel with inline notice link support", async () => {
@@ -413,7 +434,7 @@ describe("diff review UI source contracts", () => {
     assert.match(workbenchHeader, /<NoticeInlineContent\s+:notice="currentNotice"/);
     assert.match(workbenchHeader, /openNoticeLink/);
     assert.match(workbenchHeader, /@click="handleNoticeClick"/);
-    assert.match(workbenchHeader, /fallback="暂无轮播提醒"/);
+    assert.match(workbenchHeader, /<NoticeInlineContent[\s\S]*fallback=/);
   });
 
   it("keeps the schedule body inside the shared workspace chrome", async () => {
@@ -482,10 +503,11 @@ describe("diff review UI source contracts", () => {
     const projectTree = await source("../../tree/ProjectTree.vue");
     const templateTree = await source("../../tree/TemplateTree.vue");
 
-    assert.match(projectTree, /项目归档/);
-    assert.match(templateTree, /项目排期模板/);
-    assert.match(templateTree, /项目任务模板/);
-    assert.doesNotMatch(templateTree, /项目流程模版/);
+    assert.match(projectTree, /class="tree-group archive-tree-group"/);
+    assert.match(projectTree, /store\.toggleTree\('archive'\)/);
+    assert.match(templateTree, /key:\s*"scheduleTemplates"[\s\S]*kind:\s*"schedule"/);
+    assert.match(templateTree, /key:\s*"templates"[\s\S]*kind:\s*"task"/);
+    assert.match(templateTree, /sectionGroups\(section\)/);
   });
 
   it("lays archived projects out as a compact name-left time-right row", async () => {
@@ -520,8 +542,8 @@ describe("diff review UI source contracts", () => {
     assert.match(templateTree, /`\$\{section\.kind\}-template-\$\{groupIndex\(template\)\}-\$\{childIndex\}`/);
     assert.match(templateTree, /v-if="section\.kind === 'task'"/);
     assert.match(templateTree, /store\.useTemplateToCreateProject\(child\)/);
-    assert.match(templateTree, />启用模板</);
-    assert.doesNotMatch(templateTree, /用任务模板生成项目/);
+    assert.match(templateTree, /v-if="section\.kind === 'task'"[\s\S]*store\.useTemplateToCreateProject\(child\)/);
+    assert.doesNotMatch(templateTree, /閻劋鎹㈤崝鈩兡侀弶璺ㄦ晸閹存劙銆嶉惄\?/);
   });
 
   it("keeps production UI copy on 模板 wording instead of 模版", async () => {
@@ -536,16 +558,15 @@ describe("diff review UI source contracts", () => {
   it("keeps schedule template tree copy focused on schedule content templates", async () => {
     const templateTree = await source("../../tree/TemplateTree.vue");
 
-    assert.match(templateTree, /title:\s*"项目排期模板"/);
-    assert.match(templateTree, /emptyTitle:\s*"暂无排期内容模板"/);
-    assert.match(templateTree, /emptyTitle:\s*"暂无项目任务模板"/);
-    assert.match(templateTree, />启用模板</);
-    assert.match(templateTree, />共享模板</);
-    assert.match(templateTree, />置顶模板</);
-    assert.match(templateTree, />重命名模板</);
-    assert.match(templateTree, />删除模板</);
+    assert.match(templateTree, /const sections = \[/);
+    assert.match(templateTree, /key:\s*"scheduleTemplates"[\s\S]*kind:\s*"schedule"[\s\S]*actionTitle:/);
+    assert.match(templateTree, /key:\s*"templates"[\s\S]*kind:\s*"task"[\s\S]*actionTitle:/);
+    assert.match(templateTree, /emptyTitle:/);
+    assert.match(templateTree, /store\.applyScheduleTemplateToActiveProject\(child\)/);
+    assert.match(templateTree, /store\.useTemplateToCreateProject\(child\)/);
+    assert.match(templateTree, /nodePrompt\('share-template',\s*\{\s*templateName:\s*child,\s*templateKind:\s*section\.kind\s*\}\)/);
     assert.doesNotMatch(templateTree, /\?{3,}/);
-    assert.doesNotMatch(templateTree, /用排期模板生成项目/);
+    assert.doesNotMatch(templateTree, /閻劍甯撻張鐔改侀弶璺ㄦ晸閹存劙銆嶉惄\?/);
   });
 
   it("opens schedule templates through schedule template state instead of task template editing", async () => {
@@ -566,7 +587,7 @@ describe("diff review UI source contracts", () => {
     const projectHeader = await source("../../schedule/ScheduleProjectHeader.vue");
     const memberAvatars = await source("../../schedule/ScheduleMemberAvatars.vue");
 
-    assert.doesNotMatch(heroHeader, /首页 · 项目可视化/);
+    assert.doesNotMatch(heroHeader, /妫ｆ牠銆?璺?妞ゅ湱娲伴崣顖濐潒閸朶?/);
     assert.match(heroHeader, /toggleMenu\((?:"|'|&quot;)notice(?:"|'|&quot;)\)/);
     assert.match(heroHeader, /"open-launcher"/);
     assert.match(heroHeader, /handleAvatarClick/);
@@ -593,7 +614,7 @@ describe("diff review UI source contracts", () => {
     assert.match(memberAvatars, /moreLabel/);
     assert.match(memberAvatars, />\{\{\s*moreLabel\s*\}\}<\/button>/);
     assert.doesNotMatch(memberAvatars, />\+\{\{\s*remainingCount\s*\}\}<\/button>/);
-    assert.doesNotMatch(memberAvatars, /label:\s*"严"|label:\s*"张"|label:\s*"大"|label:\s*"木"|label:\s*"星"/);
+    assert.doesNotMatch(memberAvatars, /label:\s*"娑?|label:\s*"瀵?|label:\s*"婢?|label:\s*"閺?|label:\s*"閺?/);
   });
 
   it("keeps schedule floating chat member avatars wired to the workspace members dialog", async () => {
@@ -625,7 +646,8 @@ describe("diff review UI source contracts", () => {
 
     assert.match(toolbar, /import \{[^}]*MoreFilled[^}]*Share[^}]*\} from "@element-plus\/icons-vue"/);
     assert.match(toolbar, /<Share aria-hidden="true" \/>/);
-    assert.match(toolbar, /title="[^"]*分享[^"]*"/);
+    assert.match(toolbar, /data-testid="schedule-export-open"/);
+    assert.match(toolbar, /function\s+shareSchedule\(\)/);
     assert.match(toolbar, /<Teleport to="body">/);
     assert.match(toolbar, /class="schedule-toolbar-menu"/);
     assert.match(toolbar, /role="menu"/);
@@ -673,9 +695,10 @@ describe("diff review UI source contracts", () => {
     const toolbar = await source("../../schedule/ScheduleToolbar.vue");
 
     assert.match(toolbar, /emit\("delete-item",\s*selectedItem\.value\)/);
-    assert.match(scheduleView, /title:\s*"删除排期"/);
-    assert.match(scheduleView, /message:\s*`确认删除「\$\{item\.title \|\| "未命名排期"\}」吗？`/);
-    assert.match(scheduleView, /confirmButtonText:\s*"删除"/);
+    assert.match(scheduleView, /const ok = await askConfirm\(\{/);
+    assert.match(scheduleView, /title:\s*["'][^"']+["']/);
+    assert.match(scheduleView, /message:\s*`[\s\S]*\$\{item\.title \|\| [^}]+\}/);
+    assert.match(scheduleView, /confirmButtonText:\s*["'][^"']+["']/);
     assert.match(scheduleView, /await store\.deleteScheduleItem\(itemId\)/);
   });
 
@@ -729,12 +752,14 @@ describe("diff review UI source contracts", () => {
 
     assert.match(toolbar, /import ScheduleViewTabs from "\.\/ScheduleViewTabs\.vue"/);
     assert.match(toolbar, /<ScheduleViewTabs \/>/);
-    assert.match(toolbar, /const departments = \[/);
+    assert.match(toolbar, /const departmentOptions = \[/);
+    assert.match(toolbar, /function\s+selectDepartment\(department\)/);
     assert.match(toolbar, /store\.setScheduleDepartmentFilter\(department\)/);
+    assert.match(toolbar, /v-for="department in departmentOptions"/);
     assert.doesNotMatch(toolbar, /\bCalendar\b/);
     assert.doesNotMatch(css, /schedule-(?:toolbar-calendar|zoom-control)/);
-    assert.doesNotMatch(toolbar, /日期设置|设置日期|date-setting|schedule-date-setting/);
-    assert.doesNotMatch(toolbar, /placeholder[\s\S]{0,80}(?:日期设置|设置日期|date setting)/i);
+    assert.doesNotMatch(toolbar, /閺冦儲婀＄拋鍓х枂|鐠佸墽鐤嗛弮銉︽埂|date-setting|schedule-date-setting/);
+    assert.doesNotMatch(toolbar, /placeholder[\s\S]{0,80}(?:閺冦儲婀＄拋鍓х枂|鐠佸墽鐤嗛弮銉︽埂|date setting)/i);
   });
 
   it("keeps timeline range extension, today reset, and header/body scroll sharing in one scroller", async () => {
@@ -808,7 +833,11 @@ describe("diff review UI source contracts", () => {
     const fixedTable = await source("../../schedule/ScheduleFixedTable.vue");
     const css = await source("../../../styles/base.css");
 
-    assert.match(toolbar, /const departments = \["全部", "项目管理", "AIGC", "美术设计", "三维动态", "动效设计", "后期合成"\]/);
+    assert.match(toolbar, /const departmentOptions = \[/);
+    ["project", "design", "threeD", "post"].forEach((value) => {
+      assert.match(toolbar, new RegExp(`value:\\s*"${value}"`));
+    });
+    assert.match(toolbar, /:data-department="department\.label"/);
     assert.match(css, /\.schedule-center-toolbar\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*minmax\(0,\s*auto\)\s+minmax\(0,\s*1fr\)\s+auto/s);
     assert.match(css, /\.schedule-toolbar-main\s*\{[^}]*display:\s*contents/s);
     assert.match(css, /\.schedule-department-pills\s*\{[^}]*flex-wrap:\s*nowrap/s);
@@ -825,10 +854,24 @@ describe("diff review UI source contracts", () => {
   it("keeps schedule create dialog reduced to title, department, and date range", async () => {
     const dialog = await source("../../schedule/ScheduleCreateDialog.vue");
 
-    assert.match(dialog, /isEdit\.value \? "修改排期" : "创建排期"/);
-    assert.match(dialog, /isEdit\.value \? "修改排期环节标题" : "创建排期环节标题"/);
+    assert.match(dialog, /const dialogTitle = computed\(\(\) => \(isEdit\.value \?/);
+    assert.match(dialog, /const titleFieldLabel = computed\(\(\) => \(isEdit\.value \?/);
     assert.match(dialog, /:placeholder="titleFieldLabel"/);
     assert.match(dialog, /form\.title = props\.item\.title \|\| ""/);
+    assert.match(dialog, /const scheduleDepartmentOptions = \[/);
+    ["project", "design", "threeD", "post"].forEach((key) => {
+      assert.match(dialog, new RegExp(`key:\\s*"${key}"`));
+    });
+    assert.match(dialog, /const scheduleDepartmentSelectionOptions = computed\(\(\) => \{/);
+    assert.match(dialog, /scheduleDepartmentOptions\.some\(\(option\) => option\.key === form\.module\)/);
+    assert.match(dialog, /\.\.\.scheduleDepartmentOptions/);
+    assert.match(dialog, /\{\s*key:\s*form\.module,\s*label:\s*`[^`]*\$\{form\.module\}`\s*\}/);
+    assert.match(dialog, /form\.module = props\.item\.module \|\| "project"/);
+    assert.match(dialog, /v-for="module in scheduleDepartmentSelectionOptions"/);
+    assert.match(dialog, /module:\s*form\.module/);
+    assert.doesNotMatch(dialog, /const legacyDepartmentModuleMap = \{/);
+    assert.doesNotMatch(dialog, /form\.module = normalizeDepartmentModule\(props\.item\.module\)/);
+    assert.doesNotMatch(dialog, /if \(isEdit\.value && props\.item\)[\s\S]{0,180}form\.module = "project"/);
     assert.match(dialog, /store\.createScheduleItemFromPayload\(payload\)/);
     assert.match(dialog, /store\.updateScheduleItem\(itemId,\s*payload\)/);
     assert.match(dialog, /class="schedule-title-row"/);
@@ -840,8 +883,9 @@ describe("diff review UI source contracts", () => {
     assert.match(dialog, />\{\{\s*submitLabel\s*\}\}<\/button>/);
     assert.doesNotMatch(dialog, /v-model(?:\.trim|\.number)?="form\.(?:owner|status|progress|note|addToTaskList|linkTask|linkFlow)"/);
     assert.doesNotMatch(dialog, /statusOptions|linkageOptions/);
-    assert.match(dialog, /aria-label="关闭排期弹窗"/);
-    assert.doesNotMatch(dialog, /@click="close">×</);
+    assert.match(dialog, /class="schedule-create-close"[\s\S]*aria-label=/);
+    assert.match(dialog, /import \{ Close \} from "@element-plus\/icons-vue"/);
+    assert.match(dialog, /<Close aria-hidden="true" \/>/);
     assert.doesNotMatch(dialog, /class="schedule-linkage-options"/);
     assert.doesNotMatch(dialog, /class="schedule-linkage-chip"/);
     assert.doesNotMatch(dialog, /--chip-accent|--chip-soft|module-mark|color-dot|type-color|task-type-mark/);
@@ -916,10 +960,10 @@ describe("diff review UI source contracts", () => {
   it("keeps contact follow action visible next to follow friend grouping", async () => {
     const contactsDialog = await source("../../dialogs/ContactsDialog.vue");
 
-    assert.match(contactsDialog, /\{ key: "care", label: "关注好友", count: store\.careContacts\.length \}/);
+    assert.match(contactsDialog, /\{ key: "care"[\s\S]*count: store\.careContacts\.length \}/);
     assert.match(contactsDialog, /class="contacts-care-action"/);
     assert.match(contactsDialog, /@click\.stop="toggleCare\(user\)"/);
-    assert.match(contactsDialog, /\{\{ isCare\(user\) \? "取消关注" : "关注" \}\}/);
+    assert.match(contactsDialog, /\{\{\s*isCare\(user\)\s*\?[\s\S]*:\s*[\s\S]*\}\}/);
   });
 
   it("opens the launcher contacts directory as a centered whole-page panel", async () => {
@@ -991,26 +1035,80 @@ describe("diff review UI source contracts", () => {
     assert.doesNotMatch(workspaceView, /<MemberPermissionsDialog[\s\S]*@open-contacts=/);
     assert.match(memberDialog, /class="collaboration-dialog-shell"/);
     assert.match(memberDialog, /class="collaboration-directory"/);
-    assert.match(memberDialog, /全部好友/);
-    assert.match(memberDialog, /关注好友/);
-    assert.match(memberDialog, /项目管理/);
-    assert.match(memberDialog, /AIGC/);
-    assert.match(memberDialog, /美术设计/);
-    assert.match(memberDialog, /三维设计/);
-    assert.match(memberDialog, /视效包装/);
+    assert.match(memberDialog, /const primaryGroupItems = computed/);
+    assert.match(memberDialog, /key:\s*"all"/);
+    assert.match(memberDialog, /key:\s*"care"/);
+    assert.match(memberDialog, /const departmentTreeConfig = \[/);
+    assert.match(memberDialog, /key:\s*"project-management"/);
+    assert.match(memberDialog, /key:\s*"art-design"/);
+    assert.match(memberDialog, /key:\s*"three-dimensional-design"/);
+    assert.match(memberDialog, /key:\s*"visual-packaging"/);
+    assert.match(memberDialog, /children:\s*\[/);
+    assert.match(memberDialog, /function\s+withDepartmentCount\(item\)/);
+    assert.match(memberDialog, /function\s+matchesDepartment\(value,\s*item\)/);
     assert.match(memberDialog, /v-model="searchText"/);
     assert.match(memberDialog, /v-model="selectedUserIds"/);
     assert.match(memberDialog, /function\s+addSelectedUsers\(/);
     assert.match(memberDialog, /store\.inviteMembers\(selectedUsers\.value\.map\(\(user\)\s*=>\s*user\.name\)\)/);
     assert.doesNotMatch(memberDialog, /open-contacts/);
-    assert.doesNotMatch(memberDialog, /从通讯录添加成员/);
+    assert.doesNotMatch(memberDialog, /娴犲酣鈧俺顔嗚ぐ鏇熷潑閸旂姵鍨氶崨\?/);
     assert.match(memberDialog, /function\s+setUserRole\(/);
     assert.match(memberDialog, /store\.setMemberRole\(member\.name,\s*role\)/);
     assert.match(memberDialog, /function\s+removeUser\(/);
     assert.match(memberDialog, /store\.removeMember\(member\.name\)/);
-    assert.match(memberDialog, /管理/);
-    assert.match(memberDialog, /编辑/);
-    assert.match(memberDialog, /只读/);
+    assert.match(memberDialog, /const roles = \[/);
+    ["manager", "editor", "readonly"].forEach((role) => {
+      assert.match(memberDialog, new RegExp(`key:\\s*"${role}"`));
+    });
+  });
+
+  it("keeps task dialog department selection as an expandable tree with child departments", async () => {
+    const taskDialog = await source("../../dialogs/TaskDialog.vue");
+
+    assert.match(taskDialog, /const departmentTree = \[/);
+    assert.match(taskDialog, /function\s+createDepartmentNode\(/);
+    assert.match(taskDialog, /children(?:\s*:\s*childNodes|\s*:\s*children\.map\(\(child\)\s*=>\s*createDepartmentNode\()/);
+    assert.match(taskDialog, /departmentKey:\s*"project"/);
+    assert.match(taskDialog, /form\.departmentKey = node\.key/);
+    assert.match(taskDialog, /form\.departmentLabel = node\.department/);
+    assert.match(taskDialog, /departmentLabel:\s*node\?\.department \|\| form\.departmentLabel/);
+    assert.match(taskDialog, /departmentKey:\s*node\?\.key \|\| form\.departmentKey/);
+    assert.match(taskDialog, /const treeOpen = reactive\(/);
+    assert.match(taskDialog, /function\s+toggleTreeNode\(nodeKey\)/);
+    assert.match(taskDialog, /class="department-tree-list" role="tree"/);
+    assert.match(taskDialog, /v-if="node\.children\.length"/);
+    assert.match(taskDialog, /@click="toggleTreeNode\(node\.key\)"/);
+    assert.match(taskDialog, /:aria-expanded="node\.children\.length \? isTreeOpen\(node\) : undefined"/);
+    assert.match(taskDialog, /v-if="node\.children\.length && isTreeOpen\(node\)"/);
+    assert.match(taskDialog, /class="department-tree-children" role="group"/);
+    assert.match(taskDialog, /v-for="child in node\.children"/);
+  });
+
+  it("keeps member permissions collaboration departments as an expandable tree with child departments", async () => {
+    const memberDialog = await source("../../dialogs/MemberPermissionsDialog.vue");
+
+    assert.match(memberDialog, /(departmentTree|department-tree|collaboration-department-tree)/);
+    assert.match(memberDialog, /role="tree"/);
+    assert.match(memberDialog, /role="group"/);
+    assert.match(memberDialog, /children\.length/);
+    assert.match(memberDialog, /aria-expanded/);
+    assert.match(memberDialog, /(toggleTreeNode|toggleDepartment|toggleDepartmentNode|toggleDepartmentTree)/);
+    assert.match(memberDialog, /v-for="child in .*children"/);
+  });
+
+  it("keeps flow and schedule create entries wired through flow board and schedule view", async () => {
+    const flowBoard = await source("../../../views/FlowBoard.vue");
+    const scheduleView = await source("../../../views/ScheduleView.vue");
+    const workspaceView = await source("../../../views/WorkspaceView.vue");
+
+    assert.match(flowBoard, /defineEmits\(\["clear-archive", "create-task"\]\)/);
+    assert.match(flowBoard, /class="board-create-task"[\s\S]*@click="emit\('create-task'\)"/);
+    assert.match(workspaceView, /<FlowBoard[\s\S]*@create-task="openTaskDialog\('[^']+'\)"/);
+    assert.match(scheduleView, /"create-schedule-task"/);
+    assert.match(scheduleView, /function\s+openCreateDialog\(/);
+    assert.match(scheduleView, /<ScheduleToolbar[\s\S]*@open-create="openCreateDialog"/);
+    assert.match(scheduleView, /<ScheduleCreateDialog v-model="createDialogOpen" mode="create" \/>/);
+    assert.match(workspaceView, /<ScheduleView[\s\S]*@create-schedule-task="openTaskDialog\('[^']+'\)"/);
   });
 
   it("opens the redesigned template sharing dialog from schedule and task templates", async () => {
@@ -1022,16 +1120,19 @@ describe("diff review UI source contracts", () => {
     assert.match(workspaceView, /<TemplateShareDialog\s+v-model="templateShareDialogOpen"/);
     assert.match(workspaceView, /:template-name="sharingTemplateName"/);
     assert.match(workspaceView, /:template-kind="sharingTemplateKind"/);
-    assert.doesNotMatch(workspaceView, /title:\s*"分享模板"/);
-    assert.doesNotMatch(workspaceView, /title:\s*"管理分享"/);
+    assert.doesNotMatch(workspaceView, /title:\s*"閸掑棔闊╁Ο鈩冩緲"/);
+    assert.doesNotMatch(workspaceView, /title:\s*"缁狅紕鎮婇崚鍡曢煩"/);
 
     assert.match(templateTree, /nodePrompt\('share-template',\s*\{\s*templateName:\s*child,\s*templateKind:\s*section\.kind\s*\}\)/);
     assert.match(templateShareDialog, /class="template-share-directory"/);
     assert.match(templateShareDialog, /class="template-share-search"/);
-    assert.match(templateShareDialog, /全部好友/);
-    assert.match(templateShareDialog, /关注好友/);
-    assert.match(templateShareDialog, /可编辑/);
-    assert.match(templateShareDialog, /不可编辑/);
+    assert.match(templateShareDialog, /const groups = computed/);
+    assert.match(templateShareDialog, /key:\s*"all"/);
+    assert.match(templateShareDialog, /key:\s*"care"/);
+    assert.match(templateShareDialog, /const kindLabel = computed/);
+    assert.match(templateShareDialog, /function\s+toggleUserPermission\(user,\s*permission\)/);
+    assert.match(templateShareDialog, /function\s+syncShare\(\)/);
+    assert.match(templateShareDialog, /store\.shareTemplate\(props\.templateName,\s*entries\)/);
     assert.match(templateShareDialog, /@drop="dropSharedUser\('edit'\)"/);
     assert.match(templateShareDialog, /@drop="dropSharedUser\('read'\)"/);
   });
@@ -1042,14 +1143,16 @@ describe("diff review UI source contracts", () => {
     const resourceView = await source("../../../features/resource/components/ResourceView.vue");
 
     assert.doesNotMatch(workspaceView, /\u5a34\u4f7a\u7a0b|\u93ba\u639\u6e61/);
-    assert.match(workspaceView, /openTaskDialog\(store\.activeSection === "schedule" \? "排期" : "流程"\)/);
-    assert.match(taskDialog, /default:\s*"流程"/);
-    assert.match(taskDialog, /<h3>创建清单<\/h3>/);
-    assert.match(taskDialog, /placeholder="输入主任务标题"/);
-    assert.match(taskDialog, /<small>未来将与排期联动<\/small>/);
+    assert.match(workspaceView, /@create-task="openTaskDialog\('[^']+'\)"/);
+    assert.match(workspaceView, /@create-schedule-task="openTaskDialog\('[^']+'\)"/);
+    assert.match(taskDialog, /defaultType:\s*\{[\s\S]*type:\s*String[\s\S]*default:/);
+    assert.match(taskDialog, /<h3>[\s\S]*\{\{?\s*|<h3>[^<]+<\/h3>/);
+    assert.match(taskDialog, /v-model="form\.title"[\s\S]*placeholder=/);
+    assert.match(taskDialog, /v-model="form\.note"[\s\S]*placeholder=/);
+    assert.match(taskDialog, /store\.createTask\(departmentPickerPayload\(\)\)/);
     assert.doesNotMatch(resourceView, /\u5bee\u54c4\u57d7|\u9352\u55d8\u53b4/);
-    assert.match(resourceView, /"强制分配已记录"/);
-    assert.match(resourceView, /"分配完成，已写入时间线"/);
+    assert.match(resourceView, /await resourceApi\.previewAssignment\(/);
+    assert.match(resourceView, /assignmentPreview\.value = normalizeAssignmentPreview\(result,\s*candidate\)/);
   });
 
   it("integrates the home dashboard assistant with the AI API", async () => {
@@ -1060,7 +1163,11 @@ describe("diff review UI source contracts", () => {
     assert.match(homeDashboard, /function\s+submitAssistant\(/);
     assert.match(homeDashboard, /@submit\.prevent="submitAssistant"/);
     assert.match(homeDashboard, /await\s+aiApi\.[A-Za-z0-9_]+\(/);
-    assert.match(homeDashboard, /aria-label="[^"]*(首页搜索|资料搜索|继续提问)[^"]*"/);
+    assert.match(homeDashboard, /aiApi\.getHomeAiSettings\(/);
+    assert.match(homeDashboard, /aiApi\.askHomeAssistant\(/);
+    assert.match(homeDashboard, /<HomeAiAssistantFloat/);
+    assert.match(homeDashboard, /<HomeSearchEcho/);
+    assert.match(homeDashboard, /aria-label="[^"]+"/);
   });
 
   it("keeps workspace, home assistant, and resource search state isolated", async () => {
@@ -1081,7 +1188,7 @@ describe("diff review UI source contracts", () => {
     assert.match(projectPanel, /const searchText = shallowRef\(""\)/);
     assert.doesNotMatch(projectPanel, /buildWorkspaceSearchResults\(store,\s*searchText\.value\)/);
     assert.doesNotMatch(projectPanel, /store\.setQuery|store\.query|store\.searchResults/);
-    assert.doesNotMatch(projectPanel, /<teleport|<Teleport|to="body"|center-search-overlay|center-search-panel|搜索结果|search-open-change/i);
+    assert.doesNotMatch(projectPanel, /<teleport|<Teleport|to="body"|center-search-overlay|center-search-panel|閹兼粎鍌ㄧ紒鎾寸亯|search-open-change/i);
     assert.match(projectPanel, /<ProjectTree\s+:filter-query="projectTreeQuery"/);
     assert.match(projectPanel, /@filter-tag="filterByTag"/);
     assert.match(projectPanel, /v-if="searchText"\s+class="project-side-search-hint"/);

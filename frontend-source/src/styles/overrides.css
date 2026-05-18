@@ -1744,31 +1744,6 @@ body {
   display: block;
 }
 
-.project-action-create i {
-  left: 6px;
-  top: 5px;
-  width: 10px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-radius: 2px;
-}
-
-.project-action-create::before {
-  right: 4px;
-  top: 12px;
-  width: 9px;
-  height: 2px;
-  background: currentColor;
-}
-
-.project-action-create::after {
-  right: 7px;
-  top: 9px;
-  width: 2px;
-  height: 9px;
-  background: currentColor;
-}
-
 .project-action-delete i {
   left: 5px;
   top: 7px;
@@ -6686,9 +6661,9 @@ body {
 }
 
 .task-module.is-task-drag-over {
-  background: #fbfdff !important;
-  border: 2px dashed #2f9bff !important;
-  box-shadow: inset 0 0 0 2px rgba(47, 155, 255, 0.14) !important;
+  background: var(--module-hover-bg, var(--v16-panel-soft, #f9fbfd)) !important;
+  border: 2px dashed var(--module-color, var(--v16-line-strong, #c7d4e2)) !important;
+  box-shadow: inset 0 0 0 2px var(--module-shadow-color, rgba(31, 50, 73, 0.08)) !important;
 }
 
 .task-module-head {
@@ -10389,7 +10364,12 @@ body {
 }
 
 .task-card:hover,
-.archive-card:hover,
+.archive-card:hover {
+  border-color: var(--module-border-color, var(--v16-line-strong, #c7d4e2)) !important;
+  background: var(--module-hover-bg, var(--v16-panel-soft, #f9fbfd)) !important;
+  box-shadow: 0 10px 24px var(--module-shadow-color, rgba(31, 50, 73, 0.08)) !important;
+}
+
 .schedule-board-card:hover,
 .schedule-node-card:hover,
 .board-center-card:hover,

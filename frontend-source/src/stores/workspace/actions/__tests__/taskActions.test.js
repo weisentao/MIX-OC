@@ -165,6 +165,41 @@ describe("taskActions", () => {
     assert.equal(store.activeProject.tasks[0].expanded, false);
   });
 
+  it("preserves selected subdepartment metadata on created tasks and create sync payload", async () => {
+    const store = createMockStore();
+    const calls = [];
+    globalThis.window = {};
+    workspaceApi.createTask = async (projectId, payload) => {
+      calls.push([projectId, payload]);
+      return { task: { taskId: "task-backend-subdepartment", projectId } };
+    };
+
+    const ok = taskActions.createTask.call(store, {
+      title: "Subdepartment visual package",
+      type: "flow",
+      module: "post",
+      department: "\u89c6\u6548\u5305\u88c5\u4e09\u90e8",
+      departmentKey: "post-3",
+      departmentLabel: "\u89c6\u6548\u5305\u88c5\u4e09\u90e8",
+      startDate: "2026/05/09",
+      endDate: "2026/05/09"
+    });
+    await flushBackgroundSync();
+
+    assert.equal(ok, true);
+    const createdTask = store.activeProject.tasks[0];
+    assert.equal(createdTask.module, "post");
+    assert.equal(createdTask.department, "\u89c6\u6548\u5305\u88c5\u4e09\u90e8");
+    assert.equal(createdTask.departmentKey, "post-3");
+    assert.equal(createdTask.departmentLabel, "\u89c6\u6548\u5305\u88c5\u4e09\u90e8");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], "project-uid-1003");
+    assert.equal(calls[0][1].module, "post");
+    assert.equal(calls[0][1].department, "\u89c6\u6548\u5305\u88c5\u4e09\u90e8");
+    assert.equal(calls[0][1].departmentKey, "post-3");
+    assert.equal(calls[0][1].departmentLabel, "\u89c6\u6548\u5305\u88c5\u4e09\u90e8");
+  });
+
   it("uses the backend task uid for follow-up updates after create sync", async () => {
     const store = createMockStore();
     const calls = [];

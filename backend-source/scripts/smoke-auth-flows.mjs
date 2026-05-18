@@ -73,6 +73,12 @@ function messageOf(response) {
     : response.raw || "";
 }
 
+function isSecurityQuestionDisabled(response) {
+  if (response.status !== 404) return false;
+  const message = messageOf(response);
+  return message.includes("Security question is not enabled") || message.includes("当前未启用密保问题");
+}
+
 function expect(label, response, predicate, detail = "") {
   if (predicate(response)) {
     logStep("PASS", label, detail || `status=${response.status}`);
@@ -137,7 +143,7 @@ async function main() {
     expect(
       "GET /security-question disabled",
       securityQuestion,
-      (item) => item.status === 404 && messageOf(item).includes("Security question is not enabled")
+      isSecurityQuestionDisabled
     );
 
     const reset = await requestJson("/forgot-password", {

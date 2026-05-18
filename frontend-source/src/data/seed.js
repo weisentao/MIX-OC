@@ -1,14 +1,195 @@
 export const tagColors = ["red", "green", "yellow", "blue", "purple", "pink"];
 export const avatarTones = ["pink", "blue", "green", "yellow", "red"];
 
-export const taskModules = [
-  { key: "project", label: "项目管理", color: "red" },
-  { key: "aigc", label: "AIGC", color: "yellow" },
-  { key: "design", label: "美术设计", color: "green" },
-  { key: "threeD", label: "三维动态", color: "purple" },
-  { key: "motion", label: "动效设计", color: "pink" },
-  { key: "post", label: "后期合成", color: "blue" }
+export const departmentTree = [
+  {
+    key: "project",
+    value: "project",
+    label: "项目管理",
+    moduleKey: "project",
+    color: "red",
+    aliases: ["项目管理部", "PROJECT MANAGEMENT", "pm"],
+    children: []
+  },
+  {
+    key: "aigc",
+    value: "aigc",
+    label: "AIGC",
+    moduleKey: "aigc",
+    color: "yellow",
+    aliases: ["AI", "ai"],
+    children: []
+  },
+  {
+    key: "design",
+    value: "design",
+    label: "美术设计",
+    moduleKey: "design",
+    color: "green",
+    aliases: ["美术设计部", "设计"],
+    children: [
+      {
+        key: "design-1",
+        value: "design-1",
+        label: "美术设计一部",
+        moduleKey: "design",
+        parentKey: "design",
+        color: "green",
+        aliases: ["美术设计1部", "美术设计第一部"]
+      },
+      {
+        key: "design-2",
+        value: "design-2",
+        label: "美术设计二部",
+        moduleKey: "design",
+        parentKey: "design",
+        color: "green",
+        aliases: ["美术设计2部", "美术设计第二部"]
+      }
+    ]
+  },
+  {
+    key: "threeD",
+    value: "threeD",
+    label: "三维动态设计部",
+    moduleKey: "threeD",
+    color: "purple",
+    aliases: ["三维动态", "三维设计", "三维", "三维动画", "3D", "threed"],
+    children: []
+  },
+  {
+    key: "motion",
+    value: "motion",
+    label: "动效设计",
+    moduleKey: "motion",
+    color: "pink",
+    aliases: ["动效设计部", "动效"],
+    children: []
+  },
+  {
+    key: "post",
+    value: "post",
+    label: "视效包装",
+    moduleKey: "post",
+    color: "blue",
+    aliases: ["视效包装部", "后期合成", "后期合成部", "后期", "包装", "delivery"],
+    children: [
+      {
+        key: "post-1",
+        value: "post-1",
+        label: "视效包装一部",
+        moduleKey: "post",
+        parentKey: "post",
+        color: "blue",
+        aliases: ["视效包装1部", "视效包装第一部"]
+      },
+      {
+        key: "post-2",
+        value: "post-2",
+        label: "视效包装二部",
+        moduleKey: "post",
+        parentKey: "post",
+        color: "blue",
+        aliases: ["视效包装2部", "视效包装第二部"]
+      },
+      {
+        key: "post-3",
+        value: "post-3",
+        label: "视效包装三部",
+        moduleKey: "post",
+        parentKey: "post",
+        color: "blue",
+        aliases: ["视效包装3部", "视效包装第三部"]
+      }
+    ]
+  }
 ];
+
+function normalizeDepartmentValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function departmentNodeMatches(node, normalizedValue) {
+  const values = [node.key, node.value, node.label, node.moduleKey, ...(node.aliases || [])];
+  return values.some((value) => normalizeDepartmentValue(value) === normalizedValue);
+}
+
+function flattenDepartmentTree(nodes, parent = null, level = 0) {
+  return nodes.flatMap((node) => {
+    const option = {
+      key: node.key,
+      value: node.value || node.key,
+      label: node.label,
+      moduleKey: node.moduleKey || node.key,
+      parentKey: node.parentKey || parent?.key || "",
+      parentLabel: parent?.label || "",
+      color: node.color,
+      level,
+      expandable: Boolean(node.children?.length),
+      aliases: node.aliases || []
+    };
+
+    return [option, ...flattenDepartmentTree(node.children || [], node, level + 1)];
+  });
+}
+
+export const taskModules = departmentTree.map(({ key, label, color, aliases }) => ({ key, label, color, aliases: aliases || [] }));
+
+export const taskDepartmentOptions = flattenDepartmentTree(departmentTree);
+
+export function findDepartmentNode(value, nodes = departmentTree) {
+  const normalizedValue = normalizeDepartmentValue(value);
+  if (!normalizedValue) return null;
+
+  for (const node of nodes) {
+    if (departmentNodeMatches(node, normalizedValue)) return node;
+
+    const child = findDepartmentNode(normalizedValue, node.children || []);
+    if (child) return child;
+  }
+
+  return null;
+}
+
+export function getTaskModuleByDepartment(value) {
+  const department = findDepartmentNode(value);
+  const moduleKey = department?.moduleKey || department?.key || value;
+  return taskModules.find((module) => normalizeDepartmentValue(module.key) === normalizeDepartmentValue(moduleKey)) || null;
+}
+
+export function getDepartmentLabel(value, fallback = "") {
+  const department = findDepartmentNode(value);
+  return department?.label || fallback || String(value || "");
+}
+
+export function getDepartmentChildren(value) {
+  return findDepartmentNode(value)?.children || [];
+}
+
+function resolveTaskModuleKey(moduleKey) {
+  const normalizedKey = normalizeDepartmentValue(moduleKey);
+  if (!normalizedKey) return "";
+
+  const module = taskModules.find((item) => {
+    const values = [item.key, item.label, ...(item.aliases || [])];
+    return values.some((value) => normalizeDepartmentValue(value) === normalizedKey);
+  });
+
+  return module?.key || moduleKey;
+}
+
+export function getDepartmentOptionsByModule(moduleKey) {
+  const normalizedKey = normalizeDepartmentValue(resolveTaskModuleKey(moduleKey));
+  return taskDepartmentOptions.filter((option) => normalizeDepartmentValue(option.moduleKey) === normalizedKey);
+}
+
+export const departmentHelpers = {
+  findDepartmentNode,
+  getTaskModuleByDepartment,
+  getDepartmentLabel,
+  getDepartmentChildren,
+  getDepartmentOptionsByModule
+};
 
 export const scheduleColumns = [
   { key: "todo", label: "待排期", color: "gray" },

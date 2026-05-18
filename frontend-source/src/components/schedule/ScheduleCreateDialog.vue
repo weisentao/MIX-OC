@@ -1,7 +1,6 @@
 <script setup>
 import { computed, reactive, watch } from "vue";
 import { Close } from "@element-plus/icons-vue";
-import { taskModules } from "@/data/seed";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { clampDateRange, formatSlashDate } from "@/utils/schedule/dateRange.js";
 
@@ -20,6 +19,13 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "created", "updated"]);
 const store = useWorkspaceStore();
 
+const scheduleDepartmentOptions = [
+  { key: "project", label: "项目管理" },
+  { key: "design", label: "美术设计" },
+  { key: "threeD", label: "三维动态设计部" },
+  { key: "post", label: "视效包装" }
+];
+
 const form = reactive({
   title: "",
   module: "project",
@@ -37,6 +43,16 @@ const dialogTitle = computed(() => (isEdit.value ? "修改排期" : "创建排�
 const titleFieldLabel = computed(() => (isEdit.value ? "修改排期环节标题" : "创建排期环节标题"));
 const submitLabel = computed(() => (isEdit.value ? "确定修改" : "确定"));
 const canSubmit = computed(() => Boolean(form.title.trim() && form.module && form.startDate && form.endDate));
+const scheduleDepartmentSelectionOptions = computed(() => {
+  if (!isEdit.value || !form.module || scheduleDepartmentOptions.some((option) => option.key === form.module)) {
+    return scheduleDepartmentOptions;
+  }
+
+  return [
+    ...scheduleDepartmentOptions,
+    { key: form.module, label: `当前旧部门：${form.module}` }
+  ];
+});
 
 watch(
   () => props.modelValue,
@@ -144,7 +160,7 @@ async function submit() {
       <fieldset class="schedule-department-field">
         <legend>所属部门</legend>
         <div class="schedule-department-options">
-          <label v-for="module in taskModules" :key="module.key" class="schedule-department-option" :class="{ 'is-selected': form.module === module.key }">
+          <label v-for="module in scheduleDepartmentSelectionOptions" :key="module.key" class="schedule-department-option" :class="{ 'is-selected': form.module === module.key }">
             <input v-model="form.module" required type="radio" name="schedule-department" :value="module.key" />
             <span>{{ module.label }}</span>
           </label>

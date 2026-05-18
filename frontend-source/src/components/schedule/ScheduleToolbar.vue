@@ -11,12 +11,19 @@ const moreButtonRef = ref(null);
 const menuRef = ref(null);
 const menuPosition = reactive({ top: 0, left: 0 });
 
-const departments = ["全部", "项目管理", "AIGC", "美术设计", "三维动态", "动效设计", "后期合成"];
+const departmentOptions = [
+  { label: "全部", value: "全部" },
+  { label: "项目管理", value: "project" },
+  { label: "美术设计", value: "design" },
+  { label: "三维动态设计部", value: "threeD" },
+  { label: "视效包装", value: "post" }
+];
 const selectedItem = computed(() => {
   const itemId = store.scheduleUi?.selectedItemId;
   return (store.schedulePlan?.items || []).find((entry) => entry.id === itemId || entry.itemId === itemId) || null;
 });
 const selectedItemTitle = computed(() => selectedItem.value?.title || "");
+const selectedDepartmentValue = computed(() => store.scheduleUi?.departmentFilter || "全部");
 
 function selectDepartment(department) {
   store.setScheduleDepartmentFilter(department);
@@ -156,14 +163,14 @@ onBeforeUnmount(() => {
 
       <div class="schedule-department-pills" aria-label="部门筛选">
         <button
-          v-for="department in departments"
-          :key="department"
+          v-for="department in departmentOptions"
+          :key="department.value"
           type="button"
-          :class="{ 'is-active': store.scheduleUi.departmentFilter === department }"
-          :data-department="department"
-          @click="selectDepartment(department)"
+          :class="{ 'is-active': selectedDepartmentValue === department.value }"
+          :data-department="department.label"
+          @click="selectDepartment(department.value)"
         >
-          {{ department }}
+          {{ department.label }}
         </button>
       </div>
     </div>
@@ -175,6 +182,14 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.schedule-department-pills button:not(.is-active)[data-department="三维动态设计部"] {
+  border-color: rgba(183, 107, 214, 0.4);
+}
+
+.schedule-department-pills button:not(.is-active)[data-department="视效包装"] {
+  border-color: rgba(88, 169, 213, 0.42);
+}
+
 .schedule-toolbar-menu {
   max-height: calc(100vh - 16px);
   overflow-y: auto;

@@ -132,10 +132,6 @@ function openTaskDialog(type = "流程") {
   taskDialogOpen.value = true;
 }
 
-function openHeaderTaskDialog() {
-  openTaskDialog(store.activeSection === "schedule" ? "排期" : "流程");
-}
-
 function openTemplateShareDialog(templateName, templateKind = "task") {
   sharingTemplateName.value = templateName || "";
   sharingTemplateKind.value = templateKind === "schedule" ? "schedule" : "task";
@@ -391,7 +387,6 @@ function readBackground(event) {
     <section class="workbench">
       <WorkbenchHeader
         v-if="!isHome"
-        @create-task="openHeaderTaskDialog"
         @delete-project="deleteProject"
         @archive-project="archiveProject"
         @open-board="store.openActiveProjectBoard"

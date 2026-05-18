@@ -1,6 +1,5 @@
 import { isMySQLReady, mysqlPool } from "../db/mysql.js";
 import { canExport } from "../middlewares/auth.js";
-import { createScheduleCommentNotificationEvents } from "./notification-events.service.js";
 import { createTask, normalizeWorkspaceDateForSql } from "./workspace.service.js";
 
 const MYSQL_UNAVAILABLE_MESSAGE = "MySQL unavailable for schedule API";
@@ -1447,14 +1446,6 @@ export async function createScheduleSnapshot(projectId, payload = {}, auth = {})
       createdByName
     ]
   );
-
-  await createScheduleCommentNotificationEvents({
-    commentUid,
-    item: current,
-    project,
-    text: normalized.content,
-    auth: { ...auth, sub: userUid, name: userName }
-  });
 
   const [rows] = await mysqlPool.execute(
     `

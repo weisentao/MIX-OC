@@ -84,6 +84,9 @@ function taskPayload(task, projectId = null) {
     type: task.type,
     note: task.note,
     module: task.module,
+    department: task.department,
+    departmentKey: task.departmentKey,
+    departmentLabel: task.departmentLabel,
     owner: task.owner,
     time: task.time,
     startDate: task.startDate,
@@ -163,12 +166,18 @@ export const taskActions = {
     if (this.activeView !== "template" && !projectId) return blockMissingBackendId(this, "任务下发需要先同步项目到后端");
     const startDate = normalizeDate(payload.startDate) || todaySlash();
     const endDate = normalizeDate(payload.endDate) || startDate;
+    const department = String(payload.department || payload.departmentLabel || "").trim();
+    const departmentLabel = String(payload.departmentLabel || payload.department || "").trim();
+    const departmentKey = String(payload.departmentKey || "").trim();
     const task = {
       id: Date.now(),
       title: payload.title.trim(),
       type: payload.type || "流程",
       note: payload.note?.trim() || "暂无备注，可点击备注修改",
       module: normalizeTaskModuleKey(payload.module),
+      department,
+      departmentKey,
+      departmentLabel,
       owner: currentTaskOwner(this),
       time: nowText(),
       startDate,

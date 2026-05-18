@@ -1,174 +1,227 @@
-# 第一版源代码交接说明
+# MIX-OC
 
-更新时间：2026-05-15
+MIX-OC 是一套面向影视、AIGC、设计与后期团队的项目协同系统。它把项目树、任务流转、排期时间线、协同成员、模板共享、人力负载和后台管理放在同一个工作台里，适合项目经理、部门负责人和执行成员一起使用。
 
-这个目录是第一版上线/交接用的源代码复制包。包内已经按前端、后端、前端静态构建产物和说明文档拆开，方便上线人员、后续开发人员和验收人员分别使用。
+当前发布版本：`v1.0.1`
 
-## 1. 目录怎么用
+[查看 v1.0.1 发布说明](release-notes/v1.0.1.md) · [GitHub Releases](https://github.com/weisentao/MIX-OC/releases/tag/v1.0.1)
 
-```text
-第一版源代码/
-  frontend-source/   前端源码，来源：N:\mutou\xm\xjg
-  frontend-dist/     前端最新构建产物，可用于静态部署
-  backend-source/    后端源码，来源：N:\mutou\xm\xjg-api
-  docs/              精选说明文档、接口文档、上线文档
-  release-notes/     最新进度与验收状态材料
-  版本核对.md         当前锁定版本与 npm 当前最新版本对照
-```
+## 界面预览
 
-## 2. 当前技术栈
+<details open>
+<summary><strong>工作台与流程任务</strong></summary>
 
-前端是 Vue 3 + Vite 项目：
+任务工作台围绕项目树、任务模块、评论、标签、归档和模板管理组织。任务卡片按部门模块上色，拖拽时会给出明确的落点反馈。
 
-- Vue：lockfile 当前锁定 `3.5.34`
-- Vite：lockfile 当前锁定 `5.4.21`
-- Vue Router：`4.6.4`
-- Pinia：`2.3.1`
-- Element Plus：`2.14.0`
-- Axios：`1.16.0`
-- Excalidraw：`0.18.1`
-- React / React DOM：`18.3.1`，主要用于 Excalidraw/协作画板集成
+<p>
+  <img src="docs/06-客户反馈/流程页面修改/流程页面修改_图片/embedded_contact_sheet.png" alt="流程页面功能总览" width="100%">
+</p>
 
-后端是 Node.js + Express API 服务：
+</details>
 
-- Node.js：项目要求 `>=18.0.0`
-- Express：lockfile 当前锁定 `4.22.1`
-- MySQL 客户端 `mysql2`：`3.22.3`
-- Redis 客户端 `ioredis`：`5.10.1`
-- BullMQ：`5.76.7`，当前偏预留/队列能力
-- JWT：`jsonwebtoken 9.0.3`
-- bcrypt：`5.1.1`
-- dotenv：`16.6.1`
-- winston：`3.19.0`
+<details>
+<summary><strong>排期与项目模板</strong></summary>
 
-注意：本复制包没有擅自升级依赖，优先保证第一版上线稳定性。2026-05-15 查询 npm registry 时，部分上游已经有更高主版本，例如 Vite 8、Express 5、React 19、bcrypt 6、dotenv 17。是否升级需要单独开升级分支、跑完整构建和回归测试，不能混进第一版上线复制包。
+排期页支持时间线、看板、节点视图切换，项目排期模板可以复用到新项目中。`v1.0.1` 优化了排期创建入口的部门选择和旧数据兼容。
 
-更完整的依赖版本对照见 `版本核对.md`。
+<p>
+  <img src="第一版修改内容/c8078676b8a1bc05011bb9c81de28bfe.png" alt="排期模板与共享模板设计" width="100%">
+</p>
 
-## 3. 前端运行与构建
+</details>
 
-前端源码目录：
+<details>
+<summary><strong>人力排期与负载风险</strong></summary>
+
+人力模块按超级管理、部门管理和个人视角拆分，支持时间线、部门、个人、冲突和节点模式。系统会提示超负荷、空闲人员和可转派建议。
+
+<p>
+  <img src="人力/05-新版超级管理人力总览.png" alt="超级管理人力总览" width="100%">
+</p>
+<p>
+  <img src="人力/06-新版部门经理人力视图.png" alt="部门经理人力视图" width="49%">
+  <img src="人力/07-新版个人视角-朱敏.png" alt="个人人力视角" width="49%">
+</p>
+
+</details>
+
+<details>
+<summary><strong>人力推荐与超负荷确认</strong></summary>
+
+新建任务时可以参考推荐人力，分配完成后进入确认流程；当成员超负荷时，会出现二次确认，避免无意识地把风险推到执行端。
+
+<p>
+  <img src="人力/08-交互流程1-新建任务推荐人力.png" alt="新建任务推荐人力" width="49%">
+  <img src="人力/09-交互流程2-确认分配完成.png" alt="确认分配完成" width="49%">
+</p>
+<p>
+  <img src="人力/10-交互流程3-超负荷二次确认.png" alt="超负荷二次确认" width="49%">
+  <img src="人力/11-新版人力节点关系视图.png" alt="人力节点关系视图" width="49%">
+</p>
+
+</details>
+
+## v1.0.1 更新
+
+### 新增
+
+- 协同成员弹窗新增部门树：项目管理、美术设计一/二部、三维动态设计部、视效包装一/二/三部可以按树形结构筛选。
+- 新建任务弹窗新增部门树选择，任务会保存 `department`、`departmentKey` 和 `departmentLabel`，后续同步和排期能识别更细的部门归属。
+- 排期创建弹窗加入新部门入口，同时保留旧排期模块值，编辑历史数据时不会强行重映射。
+- 新增 `ScheduleCreateDialog` 源码契约测试，把新部门入口和旧模块兼容纳入前端测试链路。
+
+### 优化
+
+- 任务模块卡片使用部门色彩变量，拖拽、选中和高亮状态更容易识别。
+- 排期工具栏的部门筛选统一为“全部、项目管理、美术设计、三维动态设计部、视效包装”，减少旧分类造成的视觉噪音。
+- 成员权限弹窗的搜索、已加入状态和可编辑/只读列表更清楚。
+- 移除工作台顶部重复的新建任务入口，减少用户在流程和排期之间误点。
+
+### 修复
+
+- 修复任务下发时部门信息没有进入本地任务 payload 的问题。
+- 修复排期筛选对新旧部门 key 的兼容范围不足的问题。
+- 修复旧排期模块在编辑时被新部门列表吞掉的问题。
+- 修复部分源码契约测试没有覆盖新交互结构的问题。
+- 修复生产登录流程 smoke 对“密保问题未启用”中文提示的判断，生产校验结果更贴近当前接口文档。
+- 修复排期快照创建时误触发评论通知变量导致 500 的问题。
+
+## 功能清单
+
+<details open>
+<summary><strong>项目与任务工作台</strong></summary>
+
+- 项目树、项目归档、项目排序、项目详情编辑。
+- 任务创建、任务拖拽、状态流转、评论、负责人、时间范围和标签。
+- 模块化任务列表：项目管理、AIGC、美术设计、三维动态设计部、动效设计、视效包装等。
+- 任务模板与项目模板复用，支持模板分享和权限管理。
+
+</details>
+
+<details>
+<summary><strong>排期中心</strong></summary>
+
+- 时间线、看板、节点视图、固定表格视图。
+- 排期环节创建、编辑、导出、缩放、部门筛选和任务关联。
+- 旧模块兼容：历史 AIGC、动效、后期等分类仍可被识别。
+- 项目排期模板可以沉淀成可复用模板。
+
+</details>
+
+<details>
+<summary><strong>协作与权限</strong></summary>
+
+- 项目成员、联系人、关注好友和部门树筛选。
+- 权限分组：可编辑、只读、不可编辑。
+- 模板分享弹窗支持居中展示并挂载到 body，低高度窗口更稳定。
+- 通讯录支持头像、部门、邮箱、MBTI、职务、手机号和关注状态。
+
+</details>
+
+<details>
+<summary><strong>后台、人力与 AI 能力</strong></summary>
+
+- 后台管理：用户、项目、公告、评论洞察和基础审计信息。
+- 人力模块：超级管理视角、部门经理视角、个人视角、空闲池、交互完成态。
+- AI 助手：首页/人力场景的 DeepSeek 配置、用量记录和后端密钥隔离。
+- 通知：任务评论、@ 提及、公告和协作事件。
+
+</details>
+
+## 技术栈
+
+前端位于 `frontend-source/`，使用 Vue 3、Vite、Pinia、Vue Router、Element Plus、Axios、Video.js 和 Excalidraw。
+
+后端位于 `backend-source/`，使用 Node.js、Express、MySQL、Redis 预留、JWT、bcrypt、winston 和一组生产校验脚本。
+
+## 本地运行
+
+前端：
 
 ```powershell
-cd /d N:\mutou\第一版源代码\frontend-source
+cd frontend-source
 npm ci
 npm run dev
+```
+
+后端：
+
+```powershell
+cd backend-source
+npm ci
+copy .env.example .env
+npm run start
 ```
 
 生产构建：
 
 ```powershell
-cd /d N:\mutou\第一版源代码\frontend-source
+cd frontend-source
 npm ci
 npm run build
 ```
 
-本复制包已经在 2026-05-15 重新执行过一次前端构建，构建产物放在：
-
-```text
-N:\mutou\第一版源代码\frontend-dist
-```
-
-生产环境前端 API 基础路径保持为：
-
-```dotenv
-VITE_API_BASE_URL=/api
-```
-
-部署时应由 Nginx 或等价网关把 `/api/*` 反向代理到后端，例如 `http://127.0.0.1:13001/*`。
-
-## 4. 后端运行与生产准备
-
-后端源码目录：
+生产后端准备：
 
 ```powershell
-cd /d N:\mutou\第一版源代码\backend-source
-npm ci
-```
-
-准备环境变量：
-
-```powershell
+cd backend-source
 copy .env.production.example .env
-```
-
-生产必须修改以下值：
-
-- `NODE_ENV=production`
-- `PORT=13001`，或按实际部署端口填写
-- `CORS_ORIGIN` 改为前端正式域名
-- `JWT_SECRET` 改为长随机值，不能使用示例值
-- `ADMIN_INITIAL_PASSWORD` 改为长随机值，不能使用 `admin`
-- `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE`
-- `REDIS_*` 按实际 Redis 策略填写；当前阶段 Redis 不通不会阻断后端启动，但上线前要明确策略
-
-生产数据库准备与验证：
-
-```powershell
-cd /d N:\mutou\第一版源代码\backend-source
+npm ci
 npm run db:prepare:production
 npm run verify:production
-```
-
-启动：
-
-```powershell
 npm run start:production
 ```
 
-健康检查：
+真实部署前请替换 `.env` 中的 `JWT_SECRET`、MySQL 连接、CORS 域名和 DeepSeek 后端密钥。不要把真实 `.env`、数据库文件、浏览器缓存或运行日志提交到仓库。
 
-```text
-GET http://localhost:13001/health
-GET http://localhost:13001/api/health
+## 测试
+
+前端核心测试：
+
+```powershell
+cd frontend-source
+npm run test:frontend
 ```
 
-## 5. 本次复制时刻的上线状态
+后端生产校验：
 
-当前代码和构建产物已经整理进复制包，但是否能正式上线仍以生产环境验证为准。上线必须至少满足：
+```powershell
+cd backend-source
+npm run verify:production
+```
 
-- 后端 `.env` 使用生产随机 `JWT_SECRET`，不能使用默认示例值。
-- MySQL 可连接，数据库 `xjg` 可用，生产迁移/seed 成功。
-- `npm run verify:production` 通过。
-- 前端使用冻结后的最终 `dist`，并确认 `/api` 走正式反向代理。
-- 使用正式入口完成人工浏览器验收：登录、项目、任务、评论、标签、通讯录、后台、画板、排期相关流程。
-- 线上切换前完成前端 `dist`、后端代码和 MySQL 数据库备份。
+`v1.0.1` 新增的排期部门兼容测试已经接入 `npm run test:schedule`。
 
-历史文档里有些路径仍写作 `G:\mutou`，本机当前项目路径是 `N:\mutou`，执行命令时请按实际路径替换。
+## 发布与打包
 
-## 6. 本复制包刻意没有带入的内容
+本仓库使用 Git tag 标记发布版本。`v1.0.1` 推送后，GitHub 会自动提供 Source code `zip` 和 `tar.gz` 下载入口。
 
-为了让这个目录适合作为源码交接和上线复制，已排除：
+本地发布包建议使用：
+
+```powershell
+git archive --format=zip --output=packages/MIX-OC-v1.0.1-source.zip v1.0.1
+```
+
+发布包清单见 [packages/v1.0.1/README.md](packages/v1.0.1/README.md)。
+
+## 仓库内容说明
+
+已提交内容包括源码、测试、文档、示例环境配置和必要的产品截图。已排除内容包括：
 
 - `node_modules/`
-- 前后端历史运行日志：`*.log`、`*.out.log`、`*.err.log`
-- 后端真实 `.env`
-- 后端运行态 `data/`
-- MySQL 数据目录：`mysql-data/`、`mysql-dev-data/`、`.runtime/`
-- Playwright/Chrome 输出缓存：`output/`、`test-results/`、`.playwright-cli/`
-- Codex/gstack 临时目录：`.codex-dev/`、`.gstack/`
-- 临时打包目录：`deploy_tmp/`
+- 前端构建产物 `dist/`、`frontend-dist/`
+- 真实 `.env` 与本地密钥
+- 运行日志、QA 截图、临时脚本、浏览器输出
+- 压缩包、临时发布包和本地缓存
 
-不要把真实 `.env`、数据库数据目录、证书、私钥、浏览器缓存目录直接复制给别人。上线机器应单独配置 `.env`，数据库应走迁移、备份和恢复流程。
+## 目录
 
-## 7. 推荐阅读顺序
-
-1. `docs/01-项目概览/已经实现的功能-2026-05-15.md`
-2. `docs/01-项目概览/项目概述.md`
-3. `docs/01-项目概览/项目目录结构.md`
-4. `docs/02-技术架构/前端技术架构&框架规范.md`
-5. `docs/02-技术架构/后端技术架构&框架规范.md`
-6. `docs/02-技术架构/数据库表结构设计.md`
-7. `docs/03-部署上线/正式上线操作手册.md`
-8. `docs/03-部署上线/production-readiness-checklist.md`
-9. `docs/03-部署上线/deploy-frontend.md`
-10. `docs/03-部署上线/deploy-backend.md`
-
-## 8. 后续优先级
-
-- 在生产机器上重新填写 `.env` 并替换默认/示例密钥。
-- 确认 MySQL 正式环境、专用应用用户和数据库备份策略。
-- 跑后端 `npm run verify:production`，不要用 `/appState/main` fallback 当作正式通过依据。
-- 用 `frontend-dist` 完成静态部署，并确认 `/api` 反代正确。
-- 做真实账号浏览器验收和回滚演练。
-- 若要追赶上游最新主版本，单独做依赖升级计划和回归测试。
+```text
+frontend-source/    Vue 3 前端应用
+backend-source/     Express API 服务
+docs/               架构、接口、部署和验收文档
+release-notes/      发布说明
+packages/           发布包清单和打包说明
+人力/               人力模块设计与截图
+第一版修改内容/      需求图、设计图和验收截图
+```

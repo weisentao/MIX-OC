@@ -1,6 +1,6 @@
 {
   "name": "xjg-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "Local backend service for xjg frontend (phase 1).",

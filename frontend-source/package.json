@@ -1,6 +1,6 @@
 {
   "name": "xjg-task-board",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "mock": "npm run mock:db && node mock/server.cjs",
     "test:boards": "node --test src/features/collab-board/__tests__/boardModel.test.js",
     "test:frontend": "npm run test:schedule && npm run test:boards && node --test src/stores/workspace/actions/__tests__/frontendRegression.test.js src/stores/workspace/actions/__tests__/taskActions.test.js src/stores/workspace/actions/__tests__/templateTaskActions.test.js src/stores/workspace/__tests__/templateVisibility.test.js src/components/layout/__tests__/reviewUiSource.test.js",
-    "test:schedule": "node --test src/utils/schedule/__tests__/dateRange.test.js src/utils/schedule/__tests__/scheduleHoliday.test.js src/utils/schedule/__tests__/timelineLayout.test.js src/utils/schedule/__tests__/scheduleNormalize.test.js src/utils/schedule/__tests__/snapshotDiff.test.js src/utils/schedule/scheduleExport.test.js src/services/__tests__/scheduleApi.test.js src/api/scheduleApi.test.js src/stores/workspace/actions/__tests__/scheduleActions.test.js",
+    "test:schedule": "node --test src/components/schedule/__tests__/ScheduleCreateDialog.test.js src/utils/schedule/__tests__/dateRange.test.js src/utils/schedule/__tests__/scheduleHoliday.test.js src/utils/schedule/__tests__/timelineLayout.test.js src/utils/schedule/__tests__/scheduleNormalize.test.js src/utils/schedule/__tests__/snapshotDiff.test.js src/utils/schedule/scheduleExport.test.js src/services/__tests__/scheduleApi.test.js src/api/scheduleApi.test.js src/stores/workspace/actions/__tests__/scheduleActions.test.js",
     "build": "set \"PATH=C:\\Users\\pveadmin\\Desktop\\mutou\\.runtime\\node\\node-v24.15.0-win-x64;%PATH%\" && vite build",
     "build:approval": "set \"PATH=C:\\Users\\pveadmin\\Desktop\\mutou\\.runtime\\node\\node-v24.15.0-win-x64;%PATH%\" && npm run build && node scripts\\make-approval-package.mjs",
     "preview": "vite preview --host 0.0.0.0"
