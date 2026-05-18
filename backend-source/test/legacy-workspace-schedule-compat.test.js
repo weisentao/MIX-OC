@@ -84,7 +84,7 @@ test("legacy workspace task path returns explicit 400 instead of bare 404 when p
 
   assert.equal(response.status, 400);
   assert.equal(response.body.code, "BAD_REQUEST");
-  assert.match(response.body.message, /projectId or projectUid is required/);
+  assert.equal(response.body.message, "缺少项目ID");
 });
 
 test("legacy workspace schedule path returns explicit 400 instead of bare 404 when project id is missing", async () => {
@@ -94,7 +94,7 @@ test("legacy workspace schedule path returns explicit 400 instead of bare 404 wh
 
   assert.equal(response.status, 400);
   assert.equal(response.body.code, "BAD_REQUEST");
-  assert.match(response.body.message, /projectId or projectUid is required/);
+  assert.equal(response.body.message, "缺少项目ID");
 });
 
 test("legacy task-like schedule item update path is routed instead of bare 404", async () => {
@@ -107,7 +107,7 @@ test("legacy task-like schedule item update path is routed instead of bare 404",
   assert.notEqual(response.status, 404);
   assert.equal(response.status, 503);
   assert.equal(response.body.code, "SERVICE_UNAVAILABLE");
-  assert.match(response.body.message, /MySQL unavailable for schedule API/);
+  assert.equal(response.body.message, "数据库服务暂不可用，请稍后重试");
 });
 
 test("mounted router keeps legacy errors clear and real project schedule route reachable", async () => {
@@ -120,12 +120,12 @@ test("mounted router keeps legacy errors clear and real project schedule route r
 
   assert.equal(missingLegacy.status, 400);
   assert.equal(missingLegacy.body.code, "BAD_REQUEST");
-  assert.match(missingLegacy.body.message, /projectId or projectUid is required/);
+  assert.equal(missingLegacy.body.message, "缺少项目ID");
 
   assert.notEqual(realProjectRoute.status, 404);
   assert.equal(realProjectRoute.status, 503);
   assert.equal(realProjectRoute.body.code, "SERVICE_UNAVAILABLE");
-  assert.match(realProjectRoute.body.message, /MySQL unavailable for schedule API/);
+  assert.equal(realProjectRoute.body.message, "数据库服务暂不可用，请稍后重试");
 });
 
 test("legacy project compatibility handlers forward supplied project ids to existing services", async () => {
