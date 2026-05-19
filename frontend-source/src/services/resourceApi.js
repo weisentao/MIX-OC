@@ -34,7 +34,7 @@ function callClient(client, method, url, payload) {
     return client.request(config);
   }
   if (typeof client?.[method] !== "function") {
-    return Promise.reject(new Error(`Unsupported HTTP method: ${method}`));
+    return Promise.reject(new Error(`不支持的 HTTP 方法：${method}`));
   }
   return payload === undefined ? client[method](url) : client[method](url, payload);
 }
@@ -107,7 +107,7 @@ export function createResourceApi(client = null) {
     },
     rescheduleWorkItem(payload = {}) {
       const id = scheduleSyncId(payload);
-      if (!String(id || "").trim()) return Promise.reject(new Error("workItemId is required"));
+      if (!String(id || "").trim()) return Promise.reject(new Error("workItemId 不能为空"));
       return run("patch", `/workspace/resources/work-items/${encodeQueryValue(id)}/schedule`, payload);
     }
   };

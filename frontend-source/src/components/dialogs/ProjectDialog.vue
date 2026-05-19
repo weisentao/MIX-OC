@@ -12,7 +12,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "saved"]);
 const store = useWorkspaceStore();
-const editTagLibraryOpen = ref(false);
+const tagLibraryOpen = ref(false);
 
 const form = reactive({
   mode: "category",
@@ -23,7 +23,7 @@ const form = reactive({
   startDate: "",
   endDate: "",
   syncSchedule: true,
-  tags: "",
+  tags: [],
   owner: "",
   members: "",
   sample: "blank"
@@ -37,14 +37,9 @@ const visible = computed({
 const isEdit = computed(() => props.projectId !== null && props.projectId !== undefined);
 const dialogTitle = computed(() => (isEdit.value ? "修改项目" : "创建项目"));
 const currentProject = computed(() => (isEdit.value ? store.findProjectWithGroup(Number(props.projectId))?.project : null));
-const selectedEditTags = computed(() =>
-  String(form.tags || "")
-    .split(/[#、，\s]+/)
-    .map((tag) => tag.trim())
-    .filter(Boolean)
-);
-const availableEditTags = computed(() =>
-  (store.tags || []).filter((tag) => tag?.name && !selectedEditTags.value.includes(tag.name))
+const selectedTags = computed(() => (Array.isArray(form.tags) ? form.tags : []).filter(Boolean));
+const availableTags = computed(() =>
+  (store.tags || []).filter((tag) => tag?.name && !selectedTags.value.includes(tag.name))
 );
 
 watch(
@@ -74,7 +69,7 @@ function todayInputDate() {
 }
 
 function reset() {
-  editTagLibraryOpen.value = false;
+  tagLibraryOpen.value = false;
   const found = isEdit.value ? store.findProjectWithGroup(Number(props.projectId)) : null;
   if (found?.project) {
     const project = found.project;
@@ -88,7 +83,7 @@ function reset() {
     form.startDate = toInputDate(project.startDate || periodStart) || todayInputDate();
     form.endDate = toInputDate(project.endDate || periodEnd) || form.startDate;
     form.syncSchedule = project.syncSchedule !== false;
-    form.tags = (project.tags || []).join(" #");
+    form.tags = [...(project.tags || [])];
     form.owner = project.owner || "";
     form.members = (project.members || []).join("、");
     form.sample = "keep";
@@ -103,21 +98,33 @@ function reset() {
   form.startDate = todayInputDate();
   form.endDate = form.startDate;
   form.syncSchedule = true;
-  form.tags = "";
+  form.tags = [];
   form.owner = store.currentUser ? `${store.currentUser.department || "项目管理"}: ${store.currentUser.name}` : "";
   form.members = store.currentUser?.name || "";
   form.sample = "blank";
 }
 
 function close() {
-  editTagLibraryOpen.value = false;
+  tagLibraryOpen.value = false;
   visible.value = false;
 }
 
-function selectEditTagFromLibrary(tag) {
-  if (!tag?.name || selectedEditTags.value.includes(tag.name)) return;
-  form.tags = selectedEditTags.value.concat(tag.name).join("#");
-  editTagLibraryOpen.value = false;
+function selectTagFromLibrary(tag) {
+  if (!tag?.name || selectedTags.value.includes(tag.name)) return;
+  form.tags = selectedTags.value.concat(tag.name);
+  tagLibraryOpen.value = false;
+}
+
+function removeSelectedTag(tagName) {
+  form.tags = selectedTags.value.filter((name) => name !== tagName);
+}
+
+function tagColor(tagName) {
+  return store.getTag(tagName).color;
+}
+
+function tagLabel(tagName) {
+  return store.getTag(tagName).name;
 }
 
 function submit() {
@@ -205,43 +212,46 @@ function submit() {
         <label>结束时间
           <input v-model="form.endDate" required type="date" />
         </label>
-        <label v-if="isEdit" class="edit-project-tags">标签
+        <label class="edit-project-tags">标签
           <div class="edit-project-tag-list">
             <span
-              v-for="tagName in selectedEditTags"
+              v-for="tagName in selectedTags"
               :key="tagName"
               class="tag-pill active-tag-pill edit-project-tag-pill"
-              :data-color="store.getTag(tagName).color"
+              :data-color="tagColor(tagName)"
+              role="button"
+              tabindex="0"
+              title="移除标签"
+              @click="removeSelectedTag(tagName)"
+              @keydown.enter.prevent="removeSelectedTag(tagName)"
+              @keydown.space.prevent="removeSelectedTag(tagName)"
             >
-              {{ store.getTag(tagName).name }}
+              {{ tagLabel(tagName) }}
             </span>
             <button
               class="tag-pill edit-project-tag-add"
               type="button"
               title="从标签库选择标签"
               aria-label="从标签库选择标签"
-              @click="editTagLibraryOpen = !editTagLibraryOpen"
+              @click="tagLibraryOpen = !tagLibraryOpen"
             >
               +
             </button>
-            <small v-if="!selectedEditTags.length">暂无标签</small>
-            <div v-if="editTagLibraryOpen" class="active-tag-popover edit-project-tag-library">
+            <small v-if="!selectedTags.length">暂无标签</small>
+            <div v-if="tagLibraryOpen" class="active-tag-popover edit-project-tag-library">
               <button
-                v-for="tag in availableEditTags"
+                v-for="tag in availableTags"
                 :key="`edit-library-${tag.name}`"
                 class="tag-pill active-tag-pill edit-project-tag-option"
                 type="button"
                 :data-color="tag.color"
-                @click="selectEditTagFromLibrary(tag)"
+                @click="selectTagFromLibrary(tag)"
               >
                 {{ tag.name }}
               </button>
-              <span v-if="!availableEditTags.length" class="edit-project-tag-empty">标签库暂无可添加标签</span>
+              <span v-if="!availableTags.length" class="edit-project-tag-empty">标签库暂无可添加标签</span>
             </div>
           </div>
-        </label>
-        <label v-else>标签
-          <input v-model="form.tags" placeholder="#客户确认 #排期紧" />
         </label>
         <label v-if="!isEdit">项目负责人（管理）
           <input v-model="form.owner" placeholder="保存后默认使用当前登录用户" />

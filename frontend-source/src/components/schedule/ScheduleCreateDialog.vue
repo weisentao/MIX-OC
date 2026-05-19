@@ -19,11 +19,32 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "created", "updated"]);
 const store = useWorkspaceStore();
 
-const scheduleDepartmentOptions = [
-  { key: "project", label: "项目管理" },
-  { key: "design", label: "美术设计" },
-  { key: "threeD", label: "三维动态设计部" },
-  { key: "post", label: "视效包装" }
+const scheduleDepartmentTree = [
+  { key: "project", value: "project", label: "项目管理", color: "red", children: [] },
+  { key: "aigc", value: "aigc", label: "AIGC", color: "yellow", children: [] },
+  {
+    key: "design",
+    value: "design",
+    label: "美术设计",
+    color: "green",
+    children: [
+      { key: "design-1", value: "design-1", label: "美术设计一部", color: "green" },
+      { key: "design-2", value: "design-2", label: "美术设计二部", color: "green" }
+    ]
+  },
+  { key: "threeD", value: "threeD", label: "三维动态设计部", color: "purple", children: [] },
+  { key: "motion", value: "motion", label: "动效设计", color: "pink", children: [] },
+  {
+    key: "post",
+    value: "post",
+    label: "视效包装",
+    color: "blue",
+    children: [
+      { key: "post-1", value: "post-1", label: "视效包装一部", color: "blue" },
+      { key: "post-2", value: "post-2", label: "视效包装二部", color: "blue" },
+      { key: "post-3", value: "post-3", label: "视效包装三部", color: "blue" }
+    ]
+  }
 ];
 
 const form = reactive({
@@ -31,6 +52,11 @@ const form = reactive({
   module: "project",
   startDate: "",
   endDate: ""
+});
+
+const departmentTreeOpen = reactive({
+  design: true,
+  post: true
 });
 
 const visible = computed({
@@ -44,13 +70,13 @@ const titleFieldLabel = computed(() => (isEdit.value ? "修改排期环节标题
 const submitLabel = computed(() => (isEdit.value ? "确定修改" : "确定"));
 const canSubmit = computed(() => Boolean(form.title.trim() && form.module && form.startDate && form.endDate));
 const scheduleDepartmentSelectionOptions = computed(() => {
-  if (!isEdit.value || !form.module || scheduleDepartmentOptions.some((option) => option.key === form.module)) {
-    return scheduleDepartmentOptions;
+  if (!isEdit.value || !form.module || hasDepartmentValue(scheduleDepartmentTree, form.module)) {
+    return scheduleDepartmentTree;
   }
 
   return [
-    ...scheduleDepartmentOptions,
-    { key: form.module, label: `当前旧部门：${form.module}` }
+    ...scheduleDepartmentTree,
+    { key: form.module, value: form.module, label: `当前旧部门：${form.module}`, color: "gray", children: [] }
   ];
 });
 
@@ -85,6 +111,8 @@ function reset() {
     form.module = props.item.module || "project";
     form.startDate = toInputDate(props.item.startDate) || todayInputDate();
     form.endDate = toInputDate(props.item.endDate) || form.startDate;
+    resetDepartmentTreeOpen();
+    expandSelectedDepartmentPath();
     return;
   }
 
@@ -93,6 +121,51 @@ function reset() {
   form.module = "project";
   form.startDate = start;
   form.endDate = start;
+  resetDepartmentTreeOpen();
+}
+
+function resetDepartmentTreeOpen() {
+  departmentTreeOpen.design = true;
+  departmentTreeOpen.post = true;
+}
+
+function hasDepartmentValue(nodes, value) {
+  return nodes.some((node) => node.value === value || hasDepartmentValue(node.children || [], value));
+}
+
+function expandSelectedDepartmentPath() {
+  scheduleDepartmentTree.forEach((node) => {
+    if ((node.children || []).some((child) => isDepartmentSelected(child))) {
+      departmentTreeOpen[node.key] = true;
+    }
+  });
+}
+
+function isDepartmentOpen(node) {
+  return Boolean(departmentTreeOpen[node.key]);
+}
+
+function toggleDepartmentNode(key) {
+  departmentTreeOpen[key] = !departmentTreeOpen[key];
+}
+
+function selectDepartmentNode(node) {
+  form.module = node.value;
+  if ((node.children || []).length) {
+    departmentTreeOpen[node.key] = true;
+  }
+}
+
+function isDepartmentSelected(node) {
+  return form.module === node.value;
+}
+
+function hasSelectedChild(node) {
+  return (node.children || []).some((child) => isDepartmentSelected(child));
+}
+
+function departmentChildrenId(node) {
+  return `schedule-department-children-${node.key}`;
 }
 
 function close() {
@@ -140,7 +213,7 @@ async function submit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" class="modal-shell schedule-create-modal-shell" width="min(560px, calc(100vw - 32px))" :show-close="false" @open="reset">
+  <el-dialog v-model="visible" class="modal-shell schedule-create-modal-shell" width="min(640px, calc(100vw - 32px))" :show-close="false" @open="reset">
     <form class="modal-card schedule-create-card" @submit.prevent="submit">
       <div class="modal-head schedule-create-head">
         <h3>{{ dialogTitle }}</h3>
@@ -159,11 +232,64 @@ async function submit() {
 
       <fieldset class="schedule-department-field">
         <legend>所属部门</legend>
-        <div class="schedule-department-options">
-          <label v-for="module in scheduleDepartmentSelectionOptions" :key="module.key" class="schedule-department-option" :class="{ 'is-selected': form.module === module.key }">
-            <input v-model="form.module" required type="radio" name="schedule-department" :value="module.key" />
-            <span>{{ module.label }}</span>
-          </label>
+        <div class="schedule-department-tree" role="tree" aria-label="所属部门">
+          <div
+            v-for="node in scheduleDepartmentSelectionOptions"
+            :key="node.key"
+            class="schedule-department-node"
+            :class="{ 'has-children': node.children.length, 'has-selected-child': hasSelectedChild(node) }"
+          >
+            <div class="schedule-department-row">
+              <button
+                v-if="node.children.length"
+                class="schedule-department-toggle"
+                :class="{ 'is-open': isDepartmentOpen(node) }"
+                type="button"
+                :aria-label="`${isDepartmentOpen(node) ? '收起' : '展开'}${node.label}`"
+                :aria-expanded="isDepartmentOpen(node)"
+                :aria-controls="departmentChildrenId(node)"
+                @click="toggleDepartmentNode(node.key)"
+              >
+                <span class="schedule-department-toggle-icon" aria-hidden="true"></span>
+              </button>
+              <span v-else class="schedule-department-spacer" aria-hidden="true"></span>
+              <label
+                class="schedule-department-tree-option"
+                :class="{ 'is-selected': isDepartmentSelected(node) }"
+                :data-color="node.color"
+                role="treeitem"
+                :aria-level="1"
+                :aria-selected="isDepartmentSelected(node)"
+                :aria-expanded="node.children.length ? isDepartmentOpen(node) : undefined"
+                :aria-controls="node.children.length ? departmentChildrenId(node) : undefined"
+                @click="selectDepartmentNode(node)"
+              >
+                <input :checked="isDepartmentSelected(node)" required type="radio" name="schedule-department" :value="node.value" @change="selectDepartmentNode(node)" />
+                <span class="schedule-department-mark" aria-hidden="true"></span>
+                <span class="schedule-department-copy">
+                  <span>{{ node.label }}</span>
+                </span>
+              </label>
+            </div>
+            <div v-if="node.children.length && isDepartmentOpen(node)" :id="departmentChildrenId(node)" class="schedule-department-children" role="group">
+              <label
+                v-for="child in node.children"
+                :key="child.key"
+                class="schedule-department-tree-option schedule-department-child"
+                :class="{ 'is-selected': isDepartmentSelected(child) }"
+                :data-color="child.color"
+                role="treeitem"
+                :aria-level="2"
+                :aria-selected="isDepartmentSelected(child)"
+              >
+                <input v-model="form.module" required type="radio" name="schedule-department" :value="child.value" />
+                <span class="schedule-department-mark" aria-hidden="true"></span>
+                <span class="schedule-department-copy">
+                  <span>{{ child.label }}</span>
+                </span>
+              </label>
+            </div>
+          </div>
         </div>
       </fieldset>
 
@@ -307,23 +433,86 @@ async function submit() {
   font-weight: 800;
 }
 
-.schedule-department-options {
-  display: flex;
-  gap: 8px;
+.schedule-department-tree {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  padding: 12px;
+  border: 1px solid #dfe7ef;
+  border-radius: 8px;
+  background: #f8fafc;
 }
 
-.schedule-department-option {
-  position: relative;
-  display: inline-flex;
-  flex: 0 0 auto;
+.schedule-department-node {
+  min-width: 0;
+}
+
+.schedule-department-node.has-children {
+  grid-row: span 3;
+}
+
+.schedule-department-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
-  min-width: 78px;
+  min-width: 0;
+}
+
+.schedule-department-toggle,
+.schedule-department-spacer {
+  width: 20px;
   height: 34px;
-  padding: 0 13px;
+}
+
+.schedule-department-toggle {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: #697586;
+  background: transparent;
+  cursor: pointer;
+}
+
+.schedule-department-toggle:hover {
+  color: #344054;
+  background: #eef2f6;
+}
+
+.schedule-department-toggle:focus-visible {
+  outline: 2px solid rgba(45, 155, 232, 0.28);
+  outline-offset: 2px;
+}
+
+.schedule-department-toggle-icon {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.18s ease;
+}
+
+.schedule-department-toggle.is-open .schedule-department-toggle-icon {
+  transform: rotate(45deg);
+}
+
+.schedule-department-node.has-selected-child .schedule-department-toggle {
+  color: var(--schedule-department-accent, #2d9be8);
+}
+
+.schedule-department-tree-option {
+  --schedule-department-accent: #7b8794;
+  --schedule-department-soft: #f4f6f8;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 10px;
   border: 1px solid #d8dee7;
   border-radius: 8px;
   color: #344054;
@@ -339,7 +528,42 @@ async function submit() {
     transform 0.16s ease;
 }
 
-.schedule-department-option input {
+.schedule-department-tree-option[data-color="red"] {
+  --schedule-department-accent: #ee777a;
+  --schedule-department-soft: #fff2f3;
+}
+
+.schedule-department-tree-option[data-color="yellow"] {
+  --schedule-department-accent: #f4b321;
+  --schedule-department-soft: #fff9e8;
+}
+
+.schedule-department-tree-option[data-color="green"] {
+  --schedule-department-accent: #65b878;
+  --schedule-department-soft: #f0fbf3;
+}
+
+.schedule-department-tree-option[data-color="purple"] {
+  --schedule-department-accent: #bc7ad2;
+  --schedule-department-soft: #fbf1ff;
+}
+
+.schedule-department-tree-option[data-color="pink"] {
+  --schedule-department-accent: #e778a3;
+  --schedule-department-soft: #fff2f7;
+}
+
+.schedule-department-tree-option[data-color="blue"] {
+  --schedule-department-accent: #5ca9d7;
+  --schedule-department-soft: #eff8fd;
+}
+
+.schedule-department-tree-option[data-color="gray"] {
+  --schedule-department-accent: #98a2b3;
+  --schedule-department-soft: #f2f4f7;
+}
+
+.schedule-department-tree-option input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -348,31 +572,80 @@ async function submit() {
   clip: rect(0, 0, 0, 0);
 }
 
-.schedule-department-option span {
+.schedule-department-mark {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--schedule-department-accent);
+}
+
+.schedule-department-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.schedule-department-copy span {
+  min-width: 0;
   overflow: hidden;
   font-size: 13px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.15;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.schedule-department-option:hover {
-  border-color: #bfc7d1;
-  background: #f8fafc;
-  box-shadow: 0 6px 14px rgba(31, 45, 61, 0.07);
+.schedule-department-tree-option:hover {
+  border-color: color-mix(in srgb, var(--schedule-department-accent) 34%, #d8dee7);
+  background: color-mix(in srgb, var(--schedule-department-soft) 62%, #ffffff);
+  box-shadow: 0 6px 14px rgba(31, 45, 61, 0.06);
   transform: translateY(-1px);
 }
 
-.schedule-department-option.is-selected {
-  color: #155f94;
-  border-color: #8fc4ec;
-  background: #eef8ff;
-  box-shadow: inset 0 0 0 1px rgba(45, 155, 232, 0.14);
+.schedule-department-tree-option.is-selected {
+  color: #1f2937;
+  border-color: color-mix(in srgb, var(--schedule-department-accent) 42%, #d8dee7);
+  background: color-mix(in srgb, var(--schedule-department-soft) 76%, #ffffff);
+  box-shadow:
+    inset 3px 0 0 var(--schedule-department-accent),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.64);
 }
 
-.schedule-department-option:focus-within {
+.schedule-department-tree-option:focus-within {
   outline: 2px solid rgba(45, 155, 232, 0.28);
   outline-offset: 2px;
+}
+
+.schedule-department-children {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0 20px;
+  padding-left: 14px;
+}
+
+.schedule-department-children::before {
+  position: absolute;
+  top: -4px;
+  bottom: 17px;
+  left: 3px;
+  width: 1px;
+  background: #d6dee7;
+  content: "";
+}
+
+.schedule-department-child {
+  min-height: 32px;
+}
+
+.schedule-department-child::before {
+  position: absolute;
+  top: 50%;
+  left: -11px;
+  width: 8px;
+  height: 1px;
+  background: #d6dee7;
+  content: "";
 }
 
 .schedule-date-range {
@@ -466,8 +739,13 @@ async function submit() {
   }
 
   .schedule-title-row,
-  .schedule-date-range {
+  .schedule-date-range,
+  .schedule-department-tree {
     grid-template-columns: 1fr;
+  }
+
+  .schedule-department-node.has-children {
+    grid-row: auto;
   }
 
   .schedule-create-action {

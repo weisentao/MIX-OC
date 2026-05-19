@@ -2,7 +2,7 @@ import { tagColors } from "../../../data/seed.js";
 import workspaceApi from "../../../services/workspaceApi.js";
 import { backendSyncToast, isLoginExpiredApiError } from "../../../services/apiErrors.js";
 import { handleWorkspaceAuthFailure } from "./appActions.js";
-import { cleanProjectName, idsEqual, parseTags, uniqueId } from "../helpers.js";
+import { cleanProjectName, idsEqual, uniqueId } from "../helpers.js";
 
 const BACKEND_SYNC_FAIL_TOAST = "已本地保存，后端同步失败";
 
@@ -21,6 +21,12 @@ function requireProjectDeletePermission(store) {
   if (store.isAdmin) return true;
   store.showToast("只有超级管理员可以删除项目");
   return false;
+}
+
+function confirmPermanentProjectDelete(project) {
+  if (typeof window === "undefined" || typeof window.confirm !== "function") return true;
+  const projectName = project?.name || project?.title || project?.id || "未命名项目";
+  return window.confirm(`确认永久删除项目「${projectName}」吗？该操作会删除项目及其任务、排期、评论等关联数据，无法恢复。`);
 }
 
 function todaySlash() {
@@ -83,6 +89,159 @@ function blankProject(store, { id = Date.now(), name, group, tags = [], startDat
   };
 }
 
+function splitTagInput(value) {
+  if (Array.isArray(value)) return value;
+  return String(value || "")
+    .split(/[#、，,\s]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function cleanTagToken(value) {
+  return String(value ?? "").replace(/^#+/, "").trim();
+}
+
+function findExistingTag(store, input) {
+  const rawId = input && typeof input === "object" ? cleanTagToken(input.id || input.tagId) : "";
+  const rawName = input && typeof input === "object" ? cleanTagToken(input.name || input.tagName || input.label) : cleanTagToken(input);
+  if (!rawId && !rawName) return null;
+  return (
+    (store.tags || []).find((tag) => {
+      const tagId = cleanTagToken(tag?.id || tag?.tagId);
+      const tagName = cleanTagToken(tag?.name || tag?.tagName);
+      return Boolean((rawId && tagId === rawId) || (rawName && tagName === rawName));
+    }) || null
+  );
+}
+
+function projectTagsFromLibrary(store, value) {
+  const names = [];
+  const unknown = [];
+
+  splitTagInput(value).forEach((token) => {
+    const tag = findExistingTag(store, token);
+    if (!tag?.name) {
+      unknown.push(cleanTagToken(token));
+      return;
+    }
+    if (!names.includes(tag.name)) names.push(tag.name);
+  });
+
+  if (unknown.length) {
+    store.showToast("请选择标签库中已有标签");
+    return null;
+  }
+  return names;
+}
+
+function cleanMemberText(value) {
+  return String(value ?? "").trim();
+}
+
+function normalizeMemberRole(role, fallback = "readonly") {
+  const normalized = cleanMemberText(role).toLowerCase();
+  if (["manager", "admin", "owner", "project_manager", "projectmanager"].includes(normalized)) return "manager";
+  if (["editor", "edit", "writer", "write", "contributor"].includes(normalized)) return "editor";
+  if (["readonly", "read", "viewer", "read_only"].includes(normalized)) return "readonly";
+  return normalizeMemberRole(fallback, "readonly");
+}
+
+function memberInputToPayload(input = {}, fallbackRole = "readonly") {
+  if (typeof input === "string") {
+    const memberName = cleanMemberText(input);
+    return {
+      userId: "",
+      memberName,
+      name: memberName,
+      role: normalizeMemberRole(fallbackRole)
+    };
+  }
+  if (!input || typeof input !== "object") return null;
+  const memberName = cleanMemberText(input.memberName || input.name || input.userName || input.username || input.displayName || "");
+  const userId = cleanMemberText(input.userId || input.id || input.memberId || input.uid || "");
+  return {
+    userId,
+    memberName,
+    name: memberName,
+    role: normalizeMemberRole(input.role || fallbackRole)
+  };
+}
+
+function ensureProjectMemberUserIds(project = {}) {
+  if (!project.memberUserIds || typeof project.memberUserIds !== "object") {
+    project.memberUserIds = {};
+  }
+  return project.memberUserIds;
+}
+
+function resolveUserForMember(store, payload = {}) {
+  if (!payload) return null;
+  if (payload.userId && typeof store.getUser === "function") {
+    const byId = store.getUser(payload.userId);
+    if (byId) return byId;
+  }
+  if (payload.memberName && typeof store.getUserByName === "function") {
+    const byName = store.getUserByName(payload.memberName);
+    if (byName) return byName;
+  }
+  return null;
+}
+
+function findProjectMemberNameByUserId(store, project = {}, userId = "") {
+  const targetUserId = cleanMemberText(userId);
+  if (!targetUserId) return "";
+
+  const memberUserIds = ensureProjectMemberUserIds(project);
+  for (const memberName of Object.keys(memberUserIds)) {
+    if (cleanMemberText(memberUserIds[memberName]) === targetUserId && (project.members || []).includes(memberName)) {
+      return memberName;
+    }
+  }
+
+  const byNameLiteral = (project.members || []).find((memberName) => cleanMemberText(memberName) === targetUserId);
+  if (byNameLiteral) return byNameLiteral;
+
+  if (typeof store.getUserByName !== "function") return "";
+  return (
+    (project.members || []).find((memberName) => {
+      const user = store.getUserByName(memberName);
+      return cleanMemberText(user?.id || user?.userId) === targetUserId;
+    }) || ""
+  );
+}
+
+function resolveProjectMember(store, project = {}, input, fallbackRole = "readonly") {
+  const payload = memberInputToPayload(input, fallbackRole);
+  if (!payload) return null;
+  const user = resolveUserForMember(store, payload);
+  const userId = cleanMemberText(payload.userId || user?.id || user?.userId || "");
+  const providedName = cleanMemberText(payload.memberName || user?.name || user?.username || "");
+  const matchedMemberName = findProjectMemberNameByUserId(store, project, userId);
+  const memberName = matchedMemberName || providedName;
+  return {
+    userId,
+    memberName,
+    name: memberName,
+    role: normalizeMemberRole(payload.role || fallbackRole),
+    user
+  };
+}
+
+function projectMemberSyncEntries(store, project = {}) {
+  const memberUserIds = ensureProjectMemberUserIds(project);
+  return (project.members || []).map((memberName) => {
+    const user = typeof store.getUserByName === "function" ? store.getUserByName(memberName) : null;
+    const userId = cleanMemberText(memberUserIds[memberName] || user?.id || user?.userId || "");
+    const role = normalizeMemberRole(project.memberRoles?.[memberName], "readonly");
+    return {
+      userId,
+      memberName,
+      name: memberName,
+      role
+    };
+  });
+}
+
 export const projectActions = {
 addProjectGroup(title) {
   if (!title?.trim()) return false;
@@ -121,7 +280,8 @@ createProjectFromForm(payload) {
     return this.addProjectGroup(payload.categoryTitle || payload.name);
   }
 
-  const tags = parseTags(payload.tags);
+  const tags = projectTagsFromLibrary(this, payload.tags);
+  if (!tags) return false;
   const groupId = payload.groupId || this.projectGroups[0]?.id;
   const group = this.getProjectGroup(groupId) || this.projectGroups[0];
   const startDate = payload.startDate ? String(payload.startDate).replaceAll("-", "/") : todaySlash();
@@ -179,12 +339,14 @@ updateProjectFromForm(projectId, payload) {
   const found = this.findProjectWithGroup(projectId);
   if (!found) return false;
   const project = found.project;
+  const tags = projectTagsFromLibrary(this, payload.tags);
+  if (!tags) return false;
 
   project.name = payload.name?.trim() || project.name;
   project.startDate = payload.startDate ? String(payload.startDate).replaceAll("-", "/") : project.startDate;
   project.endDate = payload.endDate ? String(payload.endDate).replaceAll("-", "/") : project.endDate;
   project.syncSchedule = payload.syncSchedule !== false;
-  project.tags = parseTags(payload.tags);
+  project.tags = tags;
   project.owner = payload.owner || project.owner;
   project.members = payload.members ? payload.members.split(/[、，,]/).filter(Boolean) : project.members;
   project.memberRoles = project.memberRoles || {};
@@ -417,6 +579,7 @@ permanentlyDeleteProject(projectId) {
   if (!requireProjectDeletePermission(this)) return false;
   const found = this.findProjectWithGroup(projectId);
   if (!found) return false;
+  if (!confirmPermanentProjectDelete(found.project)) return false;
   if (found.isRoot) {
     this.rootProjects = this.rootProjects.filter((item) => !idsEqual(item.id, projectId));
   } else {
@@ -431,27 +594,21 @@ attachTag(tagName) {
   if (!this.requireProjectManagePermission()) return false;
   const project = this.activeProject;
   if (!project || !tagName) return false;
-  const clean = tagName.replace("#", "").trim();
-  if (!clean) return false;
-  let createdTag = false;
-  if (!this.tags.some((tag) => tag.name === clean)) {
-    this.tags.push({ name: clean, color: tagColors[this.tags.length % tagColors.length] });
-    createdTag = true;
+  const tag = findExistingTag(this, tagName);
+  if (!tag?.name) {
+    this.showToast("请选择标签库中已有标签");
+    return false;
   }
+  const clean = tag.name;
   let projectChanged = false;
+  project.tags = Array.isArray(project.tags) ? project.tags : [];
+  if (project.tags.includes(clean)) {
+    this.showToast("项目已绑定该标签");
+    return false;
+  }
   if (!project.tags.includes(clean)) {
     project.tags.push(clean);
     projectChanged = true;
-  }
-  if (createdTag) {
-    const created = this.tags.find((tag) => tag.name === clean);
-    syncInBackground(this, "createTag", () =>
-      workspaceApi.createTag({
-        name: clean,
-        color: created?.color || tagColors[0]
-      })
-    );
-    syncInBackground(this, "listTags", () => workspaceApi.listTags());
   }
   if (projectChanged) {
     const found = this.findProjectWithGroup(project.id);
@@ -530,18 +687,24 @@ deleteTag(name) {
 inviteMember(name) {
   if (!this.requireProjectManagePermission()) return false;
   const project = this.activeProject;
-  const clean = name?.trim();
-  if (!project || !clean) return false;
-  const user = this.getUserByName(clean);
+  if (!project) return false;
+  const member = resolveProjectMember(this, project, name, "readonly");
+  const clean = cleanMemberText(member?.memberName);
+  const user = member?.user || resolveUserForMember(this, member);
+  if (!clean && !member?.userId) return false;
   if (!user) {
     this.showToast("请先在通讯录用户池中选择已有用户");
     return false;
   }
-  if (!project.members.includes(clean)) {
-    project.members.unshift(clean);
+  const finalName = cleanMemberText(user?.name || user?.username || clean);
+  if (!project.members.includes(finalName)) {
+    project.members.unshift(finalName);
   }
   project.memberRoles = project.memberRoles || {};
-  project.memberRoles[clean] = project.memberRoles[clean] || "readonly";
+  project.memberRoles[finalName] = normalizeMemberRole(project.memberRoles[finalName] || member?.role || "readonly");
+  if (member?.userId || user?.id || user?.userId) {
+    ensureProjectMemberUserIds(project)[finalName] = cleanMemberText(member?.userId || user?.id || user?.userId);
+  }
   const found = this.findProjectWithGroup(project.id);
   syncInBackground(this, "updateProject", () =>
     workspaceApi.updateProject(project.id, {
@@ -549,7 +712,7 @@ inviteMember(name) {
       groupTitle: project.group
     })
   );
-  this.showToast(`已邀请 ${clean}，可查看该项目全部任务清单`);
+  this.showToast(`已邀请 ${finalName}，可查看该项目全部任务清单`);
   return true;
 },
 inviteMembers(names = []) {
@@ -558,17 +721,38 @@ inviteMembers(names = []) {
   if (!project || !Array.isArray(names)) return false;
 
   const added = [];
+  const addedMembers = [];
   const seen = new Set();
   project.memberRoles = project.memberRoles || {};
+  const memberUserIds = ensureProjectMemberUserIds(project);
 
-  names.forEach((name) => {
-    const clean = String(name || "").trim();
-    if (!clean || seen.has(clean) || (project.members || []).includes(clean)) return;
-    seen.add(clean);
-    if (!this.getUserByName(clean)) return;
-    project.members.unshift(clean);
-    project.memberRoles[clean] = project.memberRoles[clean] || "readonly";
-    added.push(clean);
+  names.forEach((input) => {
+    const member = resolveProjectMember(this, project, input, "readonly");
+    if (!member) return;
+    const key = cleanMemberText(member.userId || member.memberName);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+
+    const user = member.user || resolveUserForMember(this, member);
+    if (!user) return;
+
+    const finalName = cleanMemberText(user?.name || user?.username || member.memberName);
+    const existingMemberName = findProjectMemberNameByUserId(this, project, member.userId);
+    if (existingMemberName || (project.members || []).includes(finalName)) return;
+
+    project.members.unshift(finalName);
+    const nextRole = normalizeMemberRole(member.role, "readonly");
+    project.memberRoles[finalName] = normalizeMemberRole(project.memberRoles[finalName] || nextRole, nextRole);
+    const userId = cleanMemberText(member.userId || user?.id || user?.userId);
+    if (userId) memberUserIds[finalName] = userId;
+
+    added.push(finalName);
+    addedMembers.push({
+      userId,
+      memberName: finalName,
+      name: finalName,
+      role: project.memberRoles[finalName] || "readonly"
+    });
   });
 
   if (!added.length) {
@@ -578,10 +762,7 @@ inviteMembers(names = []) {
 
   syncInBackground(this, "addProjectMembers", () =>
     workspaceApi.addProjectMembers(project.id, {
-      members: added.map((memberName) => ({
-        memberName,
-        role: project.memberRoles?.[memberName] || "readonly"
-      }))
+      members: addedMembers
     })
   );
   this.showToast(`已加入 ${added.length} 位协同成员`);
@@ -590,33 +771,49 @@ inviteMembers(names = []) {
 setMemberRole(name, role) {
   if (!this.requireProjectManagePermission()) return false;
   const project = this.activeProject;
-  if (!project || !name) return false;
+  if (!project) return false;
+  const member = resolveProjectMember(this, project, name, role || "readonly");
+  if (!member?.memberName) return false;
   project.memberRoles = project.memberRoles || {};
-  project.memberRoles[name] = role;
+  const nextRole = normalizeMemberRole(role || member.role, "readonly");
+  project.memberRoles[member.memberName] = nextRole;
+  if (member.userId) ensureProjectMemberUserIds(project)[member.memberName] = member.userId;
+  const memberUpdates = projectMemberSyncEntries(this, project);
   syncInBackground(this, "setProjectMemberGroups", () =>
     workspaceApi.setProjectMemberGroups(project.id, {
       groups: {
         manager: (project.members || []).filter((memberName) => project.memberRoles?.[memberName] === "manager"),
         editor: (project.members || []).filter((memberName) => project.memberRoles?.[memberName] === "editor"),
         readonly: (project.members || []).filter((memberName) => project.memberRoles?.[memberName] !== "manager" && project.memberRoles?.[memberName] !== "editor")
-      }
+      },
+      updates: memberUpdates
     })
   );
-  this.showToast(`${name} 已调整为${this.roleLabel(role)}权限`);
+  this.showToast(`${member.memberName} 已调整为${this.roleLabel(nextRole)}权限`);
   return true;
 },
 removeMember(name) {
   if (!this.requireProjectManagePermission()) return false;
   const project = this.activeProject;
-  if (!project || !name) return false;
-  project.members = project.members.filter((member) => member !== name);
-  if (project.memberRoles) delete project.memberRoles[name];
+  if (!project) return false;
+  const member = resolveProjectMember(this, project, name, "readonly");
+  if (!member?.memberName) return false;
+  const memberName = member.memberName;
+  const userId = cleanMemberText(member.userId || ensureProjectMemberUserIds(project)[memberName] || "");
+  project.members = project.members.filter((memberItem) => memberItem !== memberName);
+  if (project.memberRoles) delete project.memberRoles[memberName];
+  if (project.memberUserIds) delete project.memberUserIds[memberName];
   syncInBackground(this, "removeProjectMembers", () =>
     workspaceApi.removeProjectMembers(project.id, {
-      members: [name]
+      members: [{
+        userId,
+        memberName,
+        name: memberName,
+        role: normalizeMemberRole(member.role, "readonly")
+      }]
     })
   );
-  this.showToast(`${name} 已移出项目协同`);
+  this.showToast(`${memberName} 已移出项目协同`);
   return true;
 },
 };

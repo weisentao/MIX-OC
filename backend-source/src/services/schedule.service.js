@@ -1012,15 +1012,15 @@ function buildScheduleExportHtml(schedule = {}) {
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(plan.title || "Schedule Export")}</title>
+  <title>${escapeHtml(plan.title || "排期导出")}</title>
 </head>
 <body>
-  <h1>${escapeHtml(plan.title || "Schedule Export")}</h1>
-  <p>Project: ${escapeHtml(plan.projectName || plan.projectUid || plan.projectId || "")}</p>
-  <p>Range: ${escapeHtml(plan.startDate || "")} - ${escapeHtml(plan.endDate || "")}</p>
+  <h1>${escapeHtml(plan.title || "排期导出")}</h1>
+  <p>项目：${escapeHtml(plan.projectName || plan.projectUid || plan.projectId || "")}</p>
+  <p>时间范围：${escapeHtml(plan.startDate || "")} - ${escapeHtml(plan.endDate || "")}</p>
   <table>
     <thead>
-      <tr><th>Title</th><th>Module</th><th>Owner</th><th>Start</th><th>End</th><th>Status</th><th>Progress</th></tr>
+      <tr><th>标题</th><th>模块</th><th>负责人</th><th>开始</th><th>结束</th><th>状态</th><th>进度</th></tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
@@ -1046,7 +1046,7 @@ function buildScheduleExportRecord(plan = {}, payload = {}, exportId = makeUid("
       snapshotId: exportId,
       projectId,
       planId,
-      title: plan.title || "Schedule Export",
+      title: plan.title || "排期导出",
       format: requestedFormat,
       requestedFormat,
       effectiveFormat,

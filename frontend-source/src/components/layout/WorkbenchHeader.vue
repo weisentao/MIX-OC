@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Bell } from "@element-plus/icons-vue";
 import { useWorkspaceStore } from "@/stores/workspace";
@@ -42,6 +42,14 @@ const currentNotice = computed(() => activeNotices.value[currentNoticeIndex.valu
 const unreadBadgeText = computed(() => (notificationUnreadCount.value > 99 ? "99+" : String(notificationUnreadCount.value || "")));
 const visibleNotifications = computed(() => notifications.value.slice(0, 8));
 const hasVisibleNotifications = computed(() => visibleNotifications.value.length > 0);
+
+function memberKey(member, index) {
+  return member.id || member.name || `header-member-${index}`;
+}
+
+function memberAvatar(member) {
+  return String(member.avatar || member.name || "成").slice(0, 1);
+}
 
 function scheduleNotice() {
   window.clearTimeout(noticeTimer);
@@ -283,18 +291,21 @@ function openServerFolder() {
         <div class="avatar-stack">
           <span
             v-for="(member, index) in visibleMembers"
-            :key="`${member}-${index}`"
+            :key="memberKey(member, index)"
             class="avatar"
             :data-tone="avatarTones[index % avatarTones.length]"
-            :title="`${member.name} · ${store.roleLabel(member.role)}`"
+            :title="`${member.name || '协同成员'} · ${store.roleLabel(member.role)}`"
+            :aria-label="`${member.name || '协同成员'} · ${store.roleLabel(member.role)}`"
           >
-            {{ member.avatar }}
+            <img v-if="member.avatarImage" :src="member.avatarImage" alt="" />
+            <span v-else>{{ memberAvatar(member) }}</span>
           </span>
           <span
             v-if="hiddenMemberCount"
             class="avatar avatar-more"
             role="button"
             tabindex="0"
+            data-tone="blue"
             :title="`还有${hiddenMemberCount}位协同成员，点击查看成员权限`"
             :aria-label="`还有${hiddenMemberCount}位协同成员，点击查看成员权限`"
             @click="emit('open-members')"
@@ -302,7 +313,6 @@ function openServerFolder() {
             @keydown.space.prevent="emit('open-members')"
           >...</span>
         </div>
-        <button class="member-more" title="查看协同成员和权限" type="button" @click="emit('open-members')">⋯</button>
       </div>
     </div>
   </header>
@@ -379,5 +389,70 @@ function openServerFolder() {
   font-size: 11px;
   font-style: normal;
   line-height: 1.35;
+}
+
+.header-actions {
+  gap: 8px;
+}
+
+.add-member-btn {
+  box-shadow: 0 0 0 1px rgba(47, 111, 235, 0.18), 0 6px 14px rgba(47, 111, 235, 0.16);
+  background: linear-gradient(180deg, #f8fbff 0%, #edf4ff 100%);
+}
+
+.add-member-btn:hover:not(:disabled),
+.add-member-btn:focus-visible {
+  box-shadow: 0 0 0 1px rgba(47, 111, 235, 0.28), 0 9px 18px rgba(47, 111, 235, 0.2);
+}
+
+.add-member-btn .person-add-icon {
+  color: #2f6feb;
+}
+
+.avatar-stack {
+  align-items: center;
+  min-width: 116px;
+}
+
+.avatar {
+  overflow: hidden;
+}
+
+.avatar img,
+.avatar > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  line-height: 1;
+}
+
+.avatar img {
+  object-fit: cover;
+}
+
+.avatar.avatar-more {
+  width: 34px;
+  min-width: 34px;
+  margin-left: -5px;
+  border: 1px solid #cfe0ff;
+  border-radius: 999px;
+  color: #2f6feb;
+  background: #eef5ff;
+  box-shadow: 0 5px 12px rgba(47, 111, 235, 0.16);
+  cursor: pointer;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.avatar.avatar-more:hover {
+  color: #1f58c5;
+  background: #e4efff;
+}
+
+.avatar.avatar-more:focus-visible {
+  outline: 2px solid #9ec0ff;
+  outline-offset: 2px;
 }
 </style>

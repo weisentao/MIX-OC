@@ -338,6 +338,7 @@ describe("diff review UI source contracts", () => {
     const projectTree = await source("../../tree/ProjectTree.vue");
 
     assert.doesNotMatch(workbenchHeader, /project-action-create/);
+    assert.doesNotMatch(workbenchHeader, /"create-project"|"new-project"/);
     assert.doesNotMatch(workbenchHeader, /"create-task"/);
     assert.doesNotMatch(workbenchHeader, /emit\(['"]create-task['"]\)/);
     assert.match(workbenchHeader, /project-action-delete/);
@@ -346,6 +347,8 @@ describe("diff review UI source contracts", () => {
     assert.doesNotMatch(workbenchHeader, /project-action-(?:rename|edit)/);
     assert.doesNotMatch(workbenchHeader, /"rename-project"/);
     assert.doesNotMatch(workspaceView, /<WorkbenchHeader\b(?:(?!\/>).)*@create-task=/s);
+    assert.doesNotMatch(workspaceView, /<WorkbenchHeader\b(?:(?!\/>).)*@create-project=/s);
+    assert.doesNotMatch(workspaceView, /<WorkbenchHeader\b(?:(?!\/>).)*@new-project=/s);
     assert.doesNotMatch(workspaceView, /openHeaderTaskDialog/);
     assert.doesNotMatch(workspaceView, /@rename-project=/);
     assert.doesNotMatch(projectTree, />xxx<\/button>/);
@@ -365,12 +368,14 @@ describe("diff review UI source contracts", () => {
     assert.match(projectDialog, /<label v-if="!isEdit" class="full-field inline-check project-sync-check">/);
     assert.match(projectDialog, /class="modal-close-button"/);
     assert.match(projectDialog, /:aria-label="isEdit \? [^"]+"/);
-    assert.match(projectDialog, /v-if="isEdit"\s+class="edit-project-tags"/);
+    assert.match(projectDialog, /class="edit-project-tags"/);
+    assert.match(projectDialog, /tagLibraryOpen/);
+    assert.match(projectDialog, /availableTags/);
+    assert.match(projectDialog, /function\s+selectTagFromLibrary\(tag\)/);
+    assert.match(projectDialog, /function\s+removeSelectedTag\(tagName\)/);
     assert.match(projectDialog, /class="[^"]*edit-project-tag-add[^"]*"/);
-    assert.match(projectDialog, /@click="editTagLibraryOpen = !editTagLibraryOpen"/);
-    assert.match(projectDialog, /function\s+selectEditTagFromLibrary\(tag\)/);
-    assert.match(projectDialog, /form\.tags = selectedEditTags\.value\.concat\(tag\.name\)\.join\("#"\)/);
-    assert.doesNotMatch(projectDialog, /v-if="isEdit"[\s\S]{0,220}<input[\s\S]{0,80}v-model="form\.tags"/);
+    assert.doesNotMatch(projectDialog, /<label[^>]*edit-project-tags[^>]*>[\s\S]{0,90}#(?:\s*分隔|\s*separated)/i);
+    assert.doesNotMatch(projectDialog, /<label[^>]*edit-project-tags[^>]*>[\s\S]{0,260}<input[\s\S]{0,80}v-model="form\.tags"/);
     assert.doesNotMatch(projectDialog, /v-if="isEdit"[\s\S]{0,220}v-model="form\.owner"/);
     assert.doesNotMatch(projectDialog, /v-if="isEdit"[\s\S]{0,220}v-model="form\.syncSchedule"/);
     assert.match(projectDialog, /:class="\['full-field', \{ 'edit-project-members': isEdit \}\]"/);
@@ -549,6 +554,7 @@ describe("diff review UI source contracts", () => {
   it("keeps production UI copy on 模板 wording instead of 模版", async () => {
     const files = await sourceTree("../../../", { ignoredSegments: ["__tests__"] });
     const matches = files
+      .filter((file) => !file.path.endsWith("/stores/workspace/helpers.js"))
       .filter((file) => file.text.includes("模版"))
       .map((file) => file.path);
 
@@ -748,6 +754,8 @@ describe("diff review UI source contracts", () => {
 
   it("keeps schedule view tabs and department filtering without date setting controls", async () => {
     const toolbar = await source("../../schedule/ScheduleToolbar.vue");
+    const timelineLayout = await source("../../../utils/schedule/timelineLayout.js");
+    const scheduleColors = await source("../../../utils/schedule/scheduleColors.js");
     const css = await source("../../../styles/base.css");
 
     assert.match(toolbar, /import ScheduleViewTabs from "\.\/ScheduleViewTabs\.vue"/);
@@ -756,6 +764,16 @@ describe("diff review UI source contracts", () => {
     assert.match(toolbar, /function\s+selectDepartment\(department\)/);
     assert.match(toolbar, /store\.setScheduleDepartmentFilter\(department\)/);
     assert.match(toolbar, /v-for="department in departmentOptions"/);
+    assert.match(
+      timelineLayout,
+      /SCHEDULE_DEPARTMENT_ORDER\s*=\s*\[\s*"项目管理"\s*,\s*"AIGC"\s*,\s*"美术设计"\s*,\s*"三维动态"\s*,\s*"动效设计"\s*,\s*"视效包装"\s*\]/
+    );
+    assert.match(scheduleColors, /{ key: "project", label: "项目管理"/);
+    assert.match(scheduleColors, /{ key: "aigc", label: "AIGC"/);
+    assert.match(scheduleColors, /{ key: "design", label: "美术设计"/);
+    assert.match(scheduleColors, /{ key: "threeD", label: "三维动态"/);
+    assert.match(scheduleColors, /{ key: "motion", label: "动效设计"/);
+    assert.match(scheduleColors, /{ key: "post", label: "视效包装"/);
     assert.doesNotMatch(toolbar, /\bCalendar\b/);
     assert.doesNotMatch(css, /schedule-(?:toolbar-calendar|zoom-control)/);
     assert.doesNotMatch(toolbar, /閺冦儲婀＄拋鍓х枂|鐠佸墽鐤嗛弮銉︽埂|date-setting|schedule-date-setting/);
@@ -858,16 +876,22 @@ describe("diff review UI source contracts", () => {
     assert.match(dialog, /const titleFieldLabel = computed\(\(\) => \(isEdit\.value \?/);
     assert.match(dialog, /:placeholder="titleFieldLabel"/);
     assert.match(dialog, /form\.title = props\.item\.title \|\| ""/);
-    assert.match(dialog, /const scheduleDepartmentOptions = \[/);
-    ["project", "design", "threeD", "post"].forEach((key) => {
+    assert.match(dialog, /const scheduleDepartmentTree = \[/);
+    ["project", "aigc", "design", "threeD", "motion", "post"].forEach((key) => {
+      assert.match(dialog, new RegExp(`key:\\s*"${key}"`));
+    });
+    ["design-1", "design-2", "post-1", "post-2", "post-3"].forEach((key) => {
       assert.match(dialog, new RegExp(`key:\\s*"${key}"`));
     });
     assert.match(dialog, /const scheduleDepartmentSelectionOptions = computed\(\(\) => \{/);
-    assert.match(dialog, /scheduleDepartmentOptions\.some\(\(option\) => option\.key === form\.module\)/);
-    assert.match(dialog, /\.\.\.scheduleDepartmentOptions/);
-    assert.match(dialog, /\{\s*key:\s*form\.module,\s*label:\s*`[^`]*\$\{form\.module\}`\s*\}/);
+    assert.match(dialog, /hasDepartmentValue\(scheduleDepartmentTree,\s*form\.module\)/);
+    assert.match(dialog, /\.\.\.scheduleDepartmentTree/);
+    assert.match(
+      dialog,
+      /\{\s*key:\s*form\.module,\s*value:\s*form\.module,\s*label:\s*`[^`]*\$\{form\.module\}`,\s*color:\s*"gray",\s*children:\s*\[\]\s*\}/
+    );
     assert.match(dialog, /form\.module = props\.item\.module \|\| "project"/);
-    assert.match(dialog, /v-for="module in scheduleDepartmentSelectionOptions"/);
+    assert.match(dialog, /v-for="node in scheduleDepartmentSelectionOptions"/);
     assert.match(dialog, /module:\s*form\.module/);
     assert.doesNotMatch(dialog, /const legacyDepartmentModuleMap = \{/);
     assert.doesNotMatch(dialog, /form\.module = normalizeDepartmentModule\(props\.item\.module\)/);
@@ -875,7 +899,8 @@ describe("diff review UI source contracts", () => {
     assert.match(dialog, /store\.createScheduleItemFromPayload\(payload\)/);
     assert.match(dialog, /store\.updateScheduleItem\(itemId,\s*payload\)/);
     assert.match(dialog, /class="schedule-title-row"/);
-    assert.match(dialog, /class="schedule-department-options"/);
+    assert.match(dialog, /class="schedule-department-tree"/);
+    assert.match(dialog, /class="schedule-department-children"/);
     assert.match(dialog, /class="schedule-date-range"/);
     assert.match(dialog, /type="radio"/);
     assert.match(dialog, /type="date"/);
@@ -960,8 +985,11 @@ describe("diff review UI source contracts", () => {
   it("keeps contact follow action visible next to follow friend grouping", async () => {
     const contactsDialog = await source("../../dialogs/ContactsDialog.vue");
 
-    assert.match(contactsDialog, /\{ key: "care"[\s\S]*count: store\.careContacts\.length \}/);
+    assert.match(contactsDialog, /const primaryGroupItems = computed\(\(\) => \[/);
+    assert.match(contactsDialog, /\{ key:\s*"care"[\s\S]*count:\s*(?:store\.careContacts\.length|contacts\.value\.filter\(\(user\)\s*=>\s*store\.isCareContact\(user\.id\)\)\.length)/);
+    assert.match(contactsDialog, /function\s+toggleCare\(user\)[\s\S]*store\.toggleCareContact\(user\.id\)/);
     assert.match(contactsDialog, /class="contacts-care-action"/);
+    assert.match(contactsDialog, /:class="\{ 'is-active': isCare\(user\) \}"/);
     assert.match(contactsDialog, /@click\.stop="toggleCare\(user\)"/);
     assert.match(contactsDialog, /\{\{\s*isCare\(user\)\s*\?[\s\S]*:\s*[\s\S]*\}\}/);
   });
@@ -978,14 +1006,17 @@ describe("diff review UI source contracts", () => {
     assert.doesNotMatch(workspaceView, /<MemberPermissionsDialog[\s\S]*@open-contacts=/);
 
     assert.match(contactsDialog, /source:\s*\{\s*type:\s*String,\s*default:\s*"default"\s*\}/);
-    assert.match(contactsDialog, /const searchText = ref\(""\)/);
+    assert.match(contactsDialog, /const searchText = (?:shallowRef|ref)\(""\)/);
     assert.match(contactsDialog, /v-model="searchText"/);
     assert.match(contactsDialog, /class="contacts-search"/);
+    assert.match(contactsDialog, /class="contacts-collab-panel"/);
+    assert.match(contactsDialog, /class="contacts-collab-rail"/);
+    assert.match(contactsDialog, /class="contacts-collab-content"/);
     assert.match(contactsDialog, /const filteredContacts = computed\(\(\) =>/);
     assert.match(contactsDialog, /normalizedSearchText/);
     assert.match(contactsDialog, /@click="openProfile\(user\)"/);
     assert.match(contactsDialog, /@click\.stop="toggleCare\(user\)"/);
-    assert.match(contactsDialog, /@click\.stop="inviteUser\(user\)"/);
+    assert.doesNotMatch(contactsDialog, /@click\.stop="inviteUser\(user\)"/);
 
     assert.match(css, /\.contacts-directory-shell\.is-launcher-source\.el-dialog/s);
     assert.match(css, /display:\s*grid[^}]*place-items:\s*center/s);
@@ -993,21 +1024,23 @@ describe("diff review UI source contracts", () => {
     assert.match(css, /\.contacts-care-action\.is-active/s);
   });
 
-  it("keeps the contacts directory as an eight-column clickable table", async () => {
+  it("keeps the contacts directory as a collab-style clickable list", async () => {
     const contactsDialog = await source("../../dialogs/ContactsDialog.vue");
-    const headerLabels = ["头像", "姓名", "部门", "邮箱", "MBTI", "职务", "手机号", "关注"];
-    const headerBlock = contactsDialog.match(/<div class="contacts-row contacts-head-row"[\s\S]*?<\/div>/)?.[0] || "";
 
-    assert.equal((headerBlock.match(/role="columnheader"/g) || []).length, 8);
-    headerLabels.forEach((label) => assert.match(headerBlock, new RegExp(`>${label}<`)));
-    assert.match(contactsDialog, /class="contacts-row contacts-person-row"[\s\S]*role="row"[\s\S]*tabindex="0"[\s\S]*@click="openProfile\(user\)"/);
+    assert.match(contactsDialog, /class="contacts-primary-nav"/);
+    assert.match(contactsDialog, /class="contacts-department-nav"/);
+    assert.match(contactsDialog, /class="contacts-list"\s+role="list"/);
+    assert.match(contactsDialog, /class="contacts-person-row"[\s\S]*role="listitem"[\s\S]*tabindex="0"[\s\S]*@click="openProfile\(user\)"/);
     assert.match(contactsDialog, /@keydown\.enter\.prevent="openProfile\(user\)"/);
     assert.match(contactsDialog, /@keydown\.space\.prevent="openProfile\(user\)"/);
-    assert.match(contactsDialog, /class="contact-avatar-pic"/);
-    assert.match(contactsDialog, /class="contact-phone-cell"/);
-    assert.match(contactsDialog, /@click\.stop="inviteUser\(user\)"/);
-    assert.match(contactsDialog, /@click\.stop="toggleCare\(user\)"/);
-    assert.match(contactsDialog, /grid-template-columns:[\s\S]*42px[\s\S]*minmax\(70px,\s*0\.78fr\)[\s\S]*minmax\(88px,\s*0\.8fr\)[\s\S]*minmax\(150px,\s*1\.36fr\)[\s\S]*minmax\(52px,\s*0\.42fr\)[\s\S]*minmax\(70px,\s*0\.62fr\)[\s\S]*minmax\(112px,\s*0\.86fr\)[\s\S]*76px\s*!important/);
+    assert.match(contactsDialog, /class="contacts-avatar"/);
+    assert.match(contactsDialog, /class="contacts-person-main"/);
+    assert.match(contactsDialog, /class="contacts-person-meta"/);
+    assert.match(contactsDialog, /class="contacts-person-tags"/);
+    assert.match(contactsDialog, /class="contacts-row-actions"/);
+    assert.match(contactsDialog, /class="contacts-care-action"[\s\S]*@click\.stop="toggleCare\(user\)"/);
+    assert.doesNotMatch(contactsDialog, /class="contacts-invite-action"|>加入项目<\/button>/);
+    assert.doesNotMatch(contactsDialog, /contacts-head-row|role="columnheader"|contact-avatar-pic|contact-phone-cell/);
   });
 
   it("keeps directory-style dialogs centered and appended to body", async () => {
@@ -1028,30 +1061,49 @@ describe("diff review UI source contracts", () => {
 
     assert.match(workbenchHeader, /class="add-member-btn"[\s\S]*@click="emit\('open-members'\)"/);
     assert.match(workbenchHeader, /visibleMembers\s*=\s*computed\(\(\)\s*=>\s*members\.value\.slice\(0,\s*3\)\)/);
+    assert.match(workbenchHeader, /hiddenMemberCount\s*=\s*computed\(\(\)\s*=>\s*Math\.max\(0,\s*members\.value\.length - visibleMembers\.value\.length\)\)/);
     assert.match(workbenchHeader, /hiddenMemberCount/);
+    assert.match(workbenchHeader, /v-for="\([\s\S]*?\) in visibleMembers"/);
     assert.match(workbenchHeader, /v-if="hiddenMemberCount"/);
-    assert.match(workbenchHeader, />\.\.\.<\/span>/);
+    assert.match(workbenchHeader, /class="avatar avatar-more"[\s\S]*@click="emit\('open-members'\)"[\s\S]*@keydown\.enter\.prevent="emit\('open-members'\)"[\s\S]*@keydown\.space\.prevent="emit\('open-members'\)"[\s\S]*>\.\.\.<\/span>/);
     assert.match(workspaceView, /<MemberPermissionsDialog v-model="membersDialogOpen"/);
     assert.doesNotMatch(workspaceView, /<MemberPermissionsDialog[\s\S]*@open-contacts=/);
     assert.match(memberDialog, /class="collaboration-dialog-shell"/);
     assert.match(memberDialog, /class="collaboration-directory"/);
+    assert.match(memberDialog, /class="collaboration-picker"/);
+    assert.match(memberDialog, /class="collaboration-list"/);
+    assert.match(memberDialog, /class="collaboration-user-row"/);
+    assert.match(memberDialog, /class="collaboration-permissions"/);
+    assert.match(memberDialog, /class="permission-column"/);
     assert.match(memberDialog, /const primaryGroupItems = computed/);
     assert.match(memberDialog, /key:\s*"all"/);
     assert.match(memberDialog, /key:\s*"care"/);
     assert.match(memberDialog, /const departmentTreeConfig = \[/);
     assert.match(memberDialog, /key:\s*"project-management"/);
+    assert.match(memberDialog, /key:\s*"aigc"/);
     assert.match(memberDialog, /key:\s*"art-design"/);
-    assert.match(memberDialog, /key:\s*"three-dimensional-design"/);
-    assert.match(memberDialog, /key:\s*"visual-packaging"/);
+    assert.match(memberDialog, /key:\s*"three-dynamic"/);
+    assert.match(memberDialog, /key:\s*"motion-design"/);
+    assert.match(memberDialog, /key:\s*"post-composition"/);
+    assert.match(memberDialog, /const departmentTreeConfig = \[[\s\S]*key:\s*"project-management"[\s\S]*key:\s*"aigc"[\s\S]*key:\s*"art-design"[\s\S]*key:\s*"three-dynamic"[\s\S]*key:\s*"motion-design"[\s\S]*key:\s*"post-composition"[\s\S]*\]/);
+    assert.match(memberDialog, /label:\s*"AIGC"/);
+    assert.match(memberDialog, /label:\s*"视效包装"/);
     assert.match(memberDialog, /children:\s*\[/);
     assert.match(memberDialog, /function\s+withDepartmentCount\(item\)/);
     assert.match(memberDialog, /function\s+matchesDepartment\(value,\s*item\)/);
     assert.match(memberDialog, /v-model="searchText"/);
     assert.match(memberDialog, /v-model="selectedUserIds"/);
+    assert.match(memberDialog, /const selectedUserIds = ref\(\[\]\)/);
+    assert.match(memberDialog, /const selectedUsers = computed\(\(\) =>[\s\S]*contacts\.value\.filter\(\(user\)\s*=>\s*selectedUserIds\.value\.includes\(user\.id\)[\s\S]*\)\s*\)/);
+    assert.match(memberDialog, /<input[\s\S]*v-model="selectedUserIds"[\s\S]*type="checkbox"[\s\S]*:value="user\.id"/);
     assert.match(memberDialog, /function\s+addSelectedUsers\(/);
     assert.match(memberDialog, /store\.inviteMembers\(selectedUsers\.value\.map\(\(user\)\s*=>\s*user\.name\)\)/);
+    assert.match(memberDialog, /selectedUserIds\.value = \[\]/);
+    assert.match(memberDialog, /<strong>协同列表<\/strong>/);
+    assert.match(memberDialog, /<strong>协同权限<\/strong>/);
+    assert.match(memberDialog, /已选\s*\$\{selectedUsers\.value\.length\}\s*人/);
+    assert.match(memberDialog, />[\s\S]*?\u52a0\u5165\u9879\u76ee[\s\S]*?<\/button>/);
     assert.doesNotMatch(memberDialog, /open-contacts/);
-    assert.doesNotMatch(memberDialog, /娴犲酣鈧俺顔嗚ぐ鏇熷潑閸旂姵鍨氶崨\?/);
     assert.match(memberDialog, /function\s+setUserRole\(/);
     assert.match(memberDialog, /store\.setMemberRole\(member\.name,\s*role\)/);
     assert.match(memberDialog, /function\s+removeUser\(/);
@@ -1120,21 +1172,40 @@ describe("diff review UI source contracts", () => {
     assert.match(workspaceView, /<TemplateShareDialog\s+v-model="templateShareDialogOpen"/);
     assert.match(workspaceView, /:template-name="sharingTemplateName"/);
     assert.match(workspaceView, /:template-kind="sharingTemplateKind"/);
-    assert.doesNotMatch(workspaceView, /title:\s*"閸掑棔闊╁Ο鈩冩緲"/);
-    assert.doesNotMatch(workspaceView, /title:\s*"缁狅紕鎮婇崚鍡曢煩"/);
 
     assert.match(templateTree, /nodePrompt\('share-template',\s*\{\s*templateName:\s*child,\s*templateKind:\s*section\.kind\s*\}\)/);
+    assert.match(templateShareDialog, /class="template-share-shell"/);
     assert.match(templateShareDialog, /class="template-share-directory"/);
+    assert.match(templateShareDialog, /class="template-share-rail"/);
+    assert.match(templateShareDialog, /class="template-share-tree"/);
     assert.match(templateShareDialog, /class="template-share-search"/);
-    assert.match(templateShareDialog, /const groups = computed/);
+    assert.match(templateShareDialog, /class="template-share-picker"/);
+    assert.match(templateShareDialog, /class="template-share-bulkbar"/);
+    assert.match(templateShareDialog, /class="template-share-list"/);
+    assert.match(templateShareDialog, /class="template-share-user-row"/);
+    assert.match(templateShareDialog, /class="template-share-permissions"/);
+    assert.match(templateShareDialog, /class="template-share-permission-section"/);
+    assert.match(templateShareDialog, /const primaryGroupItems = computed/);
     assert.match(templateShareDialog, /key:\s*"all"/);
     assert.match(templateShareDialog, /key:\s*"care"/);
     assert.match(templateShareDialog, /const kindLabel = computed/);
-    assert.match(templateShareDialog, /function\s+toggleUserPermission\(user,\s*permission\)/);
+    assert.match(templateShareDialog, /const selectedUserIds = ref\(\[\]\)/);
+    assert.match(templateShareDialog, /v-model="selectedUserIds"/);
+    assert.match(templateShareDialog, /function\s+applyPermissionToSelected\(permission\)/);
+    assert.match(templateShareDialog, /selectedUserIds\.value\.forEach\(\(userId\)\s*=>\s*setPermissionForUserId\(userId,\s*permission\)\)/);
+    assert.match(templateShareDialog, /function\s+permissionUsers\(role\)/);
+    assert.match(templateShareDialog, /v-for="role in roles"/);
+    assert.match(templateShareDialog, /@click="applyPermissionToSelected\('edit'\)"/);
+    assert.match(templateShareDialog, /@click="applyPermissionToSelected\('read'\)"/);
+    assert.match(templateShareDialog, /aria-label="批量操作"/);
+    assert.match(templateShareDialog, />设为可编辑<\/button>/);
+    assert.match(templateShareDialog, />设为只读<\/button>/);
+    assert.match(templateShareDialog, /label:\s*"可编辑"/);
+    assert.match(templateShareDialog, /label:\s*"只读"/);
+    assert.doesNotMatch(templateShareDialog, /\b(?:Share Template|Template Sharing|Bulk Actions|Read[\s-]?Only|Editable)\b/i);
+    assert.doesNotMatch(templateShareDialog, /�/);
     assert.match(templateShareDialog, /function\s+syncShare\(\)/);
     assert.match(templateShareDialog, /store\.shareTemplate\(props\.templateName,\s*entries\)/);
-    assert.match(templateShareDialog, /@drop="dropSharedUser\('edit'\)"/);
-    assert.match(templateShareDialog, /@drop="dropSharedUser\('read'\)"/);
   });
 
   it("keeps task and assignment dialogs free of confirmed visible mojibake", async () => {

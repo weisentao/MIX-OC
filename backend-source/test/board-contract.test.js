@@ -47,7 +47,7 @@ test("archived boards are hidden from read, update, share, and history APIs", as
 
   const assertActiveSource = sliceFunction(source, "function assertBoardActive(board)", "async function fetchShares");
   assert.match(assertActiveSource, /Number\(board\?\.is_archived \|\| 0\) === 1/);
-  assert.match(assertActiveSource, /throw notFound\("Board not found"\)/);
+  assert.match(assertActiveSource, /throw notFound\("画板不存在"\)/);
 });
 
 test("deleteBoard archives board_members and board_shares in the board transaction", async () => {
@@ -125,7 +125,7 @@ test("board JSON export route is wired for root and workspace paths", async () =
   const routes = await routesSource();
 
   assert.match(service, /export async function exportBoard\(boardId, query = {}, auth = {}\)/);
-  assert.match(service, /if \(format !== "json"\) throw badRequest\("Only json board export is supported"\)/);
+  assert.match(service, /if \(format !== "json"\) throw badRequest\("仅支持导出 JSON 格式的画板"\)/);
   assert.match(controller, /export async function getBoardExport\(req, res, next\)/);
   assert.match(routes, /router\.get\("\/boards\/:boardId\/export", authRequired, getBoardExport\)/);
   assert.match(routes, /router\.get\("\/workspace\/boards\/:boardId\/export", authRequired, getBoardExport\)/);
@@ -172,7 +172,7 @@ test("shareBoard validates entries before transactional revoke and insert", asyn
   assert.match(validateSharesSource, /entry\.userId \|\| entry\.userUid \|\| entry\.id \|\| entry\.userName \|\| entry\.name \|\| entry\.username/);
   assert.match(validateSharesSource, /invalidShares\.push/);
   assert.match(manageSource, /permission !== "owner" && projectRole !== "manager"/);
-  assert.match(manageSource, /throw forbidden\("No permission to manage board"\)/);
+  assert.match(manageSource, /throw forbidden\("无权限管理画板"\)/);
   assert.match(shareBoardSource, /await assertCanManageBoard\(board, auth\)/);
   assert.match(shareBoardSource, /const \{ invalidShares, validShares \} = await validateBoardShareEntries\(entries\)/);
   assert.match(shareBoardSource, /if \(invalidShares\.length\) \{[\s\S]*shareResult:\s*{[\s\S]*ok: false[\s\S]*invalidShares/);
@@ -205,7 +205,7 @@ test("getBoardHistory supports pagination and metadata-only responses", async ()
 
   assert.match(service, /const DEFAULT_BOARD_HISTORY_LIMIT = 50/);
   assert.match(service, /const MAX_BOARD_HISTORY_LIMIT = 200/);
-  assert.match(openSource, /if \(permission === "none"\) throw forbidden\("No permission to open board"\)/);
+  assert.match(openSource, /if \(permission === "none"\) throw forbidden\("无权限打开画板"\)/);
   assert.match(historySource, /await assertCanOpenBoard\(board, auth\)/);
   assert.match(historySource, /const limit = normalizePositiveInteger\(query\.limit, DEFAULT_BOARD_HISTORY_LIMIT, MAX_BOARD_HISTORY_LIMIT\)/);
   assert.match(historySource, /const page = normalizePositiveInteger\(query\.page, 1\)/);

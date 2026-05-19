@@ -313,7 +313,7 @@ onMounted(loadAiUsage);
             <span role="cell">{{ row.model }}</span>
             <span role="cell" class="manager-ai-question">{{ row.questionSummary }}</span>
             <span role="cell">
-              <i class="manager-ai-status" :class="statusClass(row.status)">{{ row.status }}</i>
+              <i class="manager-ai-status" :class="statusClass(row.status)">{{ normalizeStatus(row.status) }}</i>
             </span>
           </div>
         </template>

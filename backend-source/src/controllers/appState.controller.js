@@ -22,6 +22,10 @@ async function writeFallbackState(state) {
   await writeFile(fallbackFile, JSON.stringify(state, null, 2), "utf8");
 }
 
+function actorIdFromReq(req = {}) {
+  return String(req.auth?.sub || req.auth?.id || req.auth?.userId || "").trim();
+}
+
 export async function getMainAppState(req, res) {
   if (!isMySQLReady()) {
     return res.json(await readFallbackState());
@@ -44,7 +48,7 @@ export async function saveMainAppState(req, res) {
     `INSERT INTO app_states (id, data_json, updated_by)
      VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE data_json = VALUES(data_json), updated_by = VALUES(updated_by), updated_at = CURRENT_TIMESTAMP`,
-    [STATE_ID, JSON.stringify(state), req.auth?.sub || req.auth?.id || ""]
+    [STATE_ID, JSON.stringify(state), actorIdFromReq(req)]
   );
   return res.json({ ok: true, storage: "mysql" });
 }

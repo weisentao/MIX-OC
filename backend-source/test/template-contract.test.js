@@ -8,7 +8,7 @@ test("template response includes recipients + permission in templateShareInfo", 
     [
       {
         template_uid: "tg-task",
-        title: "任务模板目录",
+        title: "task-group",
         group_key: "task",
         parent_template_uid: "",
         owner_user_uid: "u-owner",
@@ -24,7 +24,7 @@ test("template response includes recipients + permission in templateShareInfo", 
       },
       {
         template_uid: "tpl-task",
-        title: "上线任务模板",
+        title: "template-a",
         group_key: "task",
         parent_template_uid: "tg-task",
         owner_user_uid: "u-owner",
@@ -71,7 +71,7 @@ test("template response includes recipients + permission in templateShareInfo", 
     { sub: "u-owner", name: "Owner" }
   );
 
-  assert.deepEqual(response.templateShareInfo["上线任务模板"], {
+  assert.deepEqual(response.templateShareInfo["template-a"], {
     shared: true,
     sharedWith: ["Reader", "Editor"],
     fromUser: "Owner",
@@ -82,6 +82,90 @@ test("template response includes recipients + permission in templateShareInfo", 
     permissions: {
       "u-reader": "read",
       "u-editor": "edit"
+    }
+  });
+
+  // New keyed contract: same share info also available by template_uid/templateId.
+  assert.deepEqual(response.templateShareInfo["tpl-task"], response.templateShareInfo["template-a"]);
+});
+
+test("template share info supports id and title keyed lookup to avoid title collision", () => {
+  const keyed = __private__.buildTemplateShareInfoLookup({
+    id: "tpl-unique-001",
+    templateId: "tpl-unique-001",
+    legacyTemplateId: "legacy-001",
+    title: "same-name-template",
+    name: "same-name-template",
+    shares: [
+      { userId: "u-editor", userName: "Editor", permission: "write", status: "active", fromUser: "Owner" }
+    ]
+  });
+
+  assert.deepEqual(keyed["tpl-unique-001"], keyed["same-name-template"]);
+  assert.deepEqual(keyed["legacy-001"], keyed["same-name-template"]);
+  assert.deepEqual(keyed["tpl-unique-001"], {
+    shared: true,
+    sharedWith: ["Editor"],
+    fromUser: "Owner",
+    recipients: [{ userId: "u-editor", userName: "Editor", permission: "edit" }],
+    permissions: { "u-editor": "edit" }
+  });
+});
+
+test("edit/write shared user can edit template content but cannot manage shares by default", () => {
+  const row = {
+    owner_user_uid: "u-owner",
+    created_by: "u-owner"
+  };
+  const editorAuth = { sub: "u-editor", role: "employee" };
+
+  assert.equal(__private__.canEditTemplateRow(row, editorAuth, "write"), true);
+  assert.equal(__private__.canEditTemplateRow(row, editorAuth, "edit"), true);
+  assert.equal(__private__.canManageTemplateRow(row, editorAuth, "write"), false);
+  assert.equal(__private__.canManageTemplateRow(row, editorAuth, "manage"), true);
+});
+
+test("normalizeShareEntries supports entries/recipients/sharedWith+permissions and returns deduped final entries", () => {
+  const entries = __private__.normalizeShareEntries({
+    entries: [{ userId: "u-a", userName: "User A", permission: "edit" }],
+    recipients: [{ userId: "u-b", userName: "User B", permission: "write" }],
+    sharedWith: ["u-c"],
+    permissions: { "u-c": "read" }
+  });
+
+  assert.deepEqual(entries, [
+    { userId: "u-a", userName: "User A", permission: "write", note: "" },
+    { userId: "u-b", userName: "User B", permission: "write", note: "" },
+    { userId: "u-c", userName: "u-c", permission: "read", note: "" }
+  ]);
+});
+
+test("share mutation result returns final normalized recipients and permission maps", () => {
+  const result = __private__.buildTemplateShareMutationResult({
+    id: "tpl-2",
+    shares: [
+      { userId: "u-a", userName: "User A", permission: "read", status: "active", fromUser: "Owner" },
+      { userId: "u-b", userName: "User B", permission: "owner", status: "active", fromUser: "Owner" }
+    ]
+  });
+
+  assert.deepEqual(result, {
+    templateId: "tpl-2",
+    templateUid: "tpl-2",
+    shared: true,
+    sharedWith: ["User A", "User B"],
+    fromUser: "Owner",
+    recipients: [
+      { userId: "u-a", userName: "User A", permission: "read" },
+      { userId: "u-b", userName: "User B", permission: "edit" }
+    ],
+    entries: [
+      { userId: "u-a", userName: "User A", permission: "read" },
+      { userId: "u-b", userName: "User B", permission: "edit" }
+    ],
+    permissions: {
+      "u-a": "read",
+      "u-b": "edit"
     }
   });
 });
@@ -108,6 +192,21 @@ test("template service create/update/get/list stay persistence-backed", async ()
   assert.match(getBody, /return buildTemplateDetail\(template\)/);
   assert.match(listBody, /FROM templates t/);
   assert.match(listBody, /return buildTemplatesResponse\(rows, sharesByTemplate, auth\)/);
+});
+
+test("template share mutation returns final normalized status payload", async () => {
+  const source = await readFile("src/services/template.service.js", "utf8");
+  const shareStart = source.indexOf("export async function shareTemplate(templateId, payload = {}, auth = {})");
+  const unshareStart = source.indexOf("export async function unshareTemplate(templateId, userId, auth = {})", shareStart);
+  const copyStart = source.indexOf("export async function copyTemplate(templateId, payload = {}, auth = {})", unshareStart);
+  const shareBody = source.slice(shareStart, unshareStart);
+  const unshareBody = source.slice(unshareStart, copyStart);
+
+  assert.match(shareBody, /const entries = normalizeShareEntries\(payload\)/);
+  assert.match(shareBody, /shareResult: buildTemplateShareMutationResult\(detail\.template\)/);
+  assert.match(shareBody, /templateShareInfo: buildTemplateShareInfoLookup\(detail\.template\)/);
+  assert.match(unshareBody, /shareResult: buildTemplateShareMutationResult\(detail\.template\)/);
+  assert.match(unshareBody, /templateShareInfo: buildTemplateShareInfoLookup\(detail\.template\)/);
 });
 
 test("template apply creates project with tasks from task template content", async () => {

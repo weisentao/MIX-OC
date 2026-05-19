@@ -1,4 +1,4 @@
-﻿import { isMySQLReady, mysqlPool } from "../db/mysql.js";
+import { isMySQLReady, mysqlPool } from "../db/mysql.js";
 
 const MYSQL_UNAVAILABLE_MESSAGE = "MySQL unavailable for template API";
 const visibleTextReplacements = new Map([
@@ -83,14 +83,29 @@ function normalizeVisibility(value = "private") {
   return "private";
 }
 
-function normalizePermission(value = "read") {
+function sharePermissionCode(value = "") {
   const clean = String(value || "").trim().toLowerCase();
-  if (["write", "edit", "manage", "owner"].includes(clean)) return "write";
-  return "read";
+  if (clean === "owner") return "owner";
+  if (["manage", "manager"].includes(clean)) return "manage";
+  if (["write", "edit", "editor", "editable"].includes(clean)) return "write";
+  if (["read", "readonly", "view", "viewer"].includes(clean)) return "read";
+  return "";
+}
+
+function normalizePermission(value = "read") {
+  return sharePermissionCode(value) || "read";
 }
 
 function permissionForClient(value = "read") {
-  return normalizePermission(value) === "write" ? "edit" : "read";
+  return ["owner", "manage", "write"].includes(sharePermissionCode(value) || normalizePermission(value)) ? "edit" : "read";
+}
+
+function hasTemplateShareEditPermission(value = "") {
+  return ["owner", "manage", "write"].includes(sharePermissionCode(value));
+}
+
+function hasTemplateShareManagePermission(value = "") {
+  return ["owner", "manage"].includes(sharePermissionCode(value));
 }
 
 function isTemplateGroup(row = {}) {
@@ -220,10 +235,18 @@ function canReadTemplateRow(row = {}, auth = {}, sharedTemplateIds = new Set()) 
   return sharedTemplateIds.has(row.template_uid);
 }
 
-function canManageTemplateRow(row = {}, auth = {}) {
+function canEditTemplateRow(row = {}, auth = {}, actorSharePermission = "") {
   if (isAdminAuth(auth)) return true;
   const userUid = actorId(auth);
-  return Boolean(userUid && (row.owner_user_uid === userUid || row.created_by === userUid));
+  if (userUid && (row.owner_user_uid === userUid || row.created_by === userUid)) return true;
+  return hasTemplateShareEditPermission(actorSharePermission);
+}
+
+function canManageTemplateRow(row = {}, auth = {}, actorSharePermission = "") {
+  if (isAdminAuth(auth)) return true;
+  const userUid = actorId(auth);
+  if (userUid && (row.owner_user_uid === userUid || row.created_by === userUid)) return true;
+  return hasTemplateShareManagePermission(actorSharePermission);
 }
 
 function addDefaultTemplateGroups(groups, auth = {}) {
@@ -255,6 +278,84 @@ function addDefaultTemplateGroups(groups, auth = {}) {
       locked: false
     });
   }
+}
+
+function normalizeTemplateShareSummary(item = {}) {
+  const recipientsByKey = new Map();
+  const activeShares = Array.isArray(item.shares) ? item.shares.filter((share) => String(share.status || "").toLowerCase() === "active") : [];
+  for (const share of activeShares) {
+    const userId = trimText(share.userId || "", 128);
+    const userName = trimText(share.userName || userId, 128) || userId;
+    const key = trimText(userId || userName, 128).toLowerCase();
+    if (!key) continue;
+    recipientsByKey.set(key, {
+      userId: userId || userName,
+      userName: userName || userId,
+      permission: permissionForClient(share.permission)
+    });
+  }
+  const recipients = [...recipientsByKey.values()];
+  const permissions = recipients.reduce((map, entry) => {
+    const key = trimText(entry.userId || entry.userName, 128);
+    if (key) map[key] = permissionForClient(entry.permission);
+    return map;
+  }, {});
+  return {
+    shared: recipients.length > 0,
+    sharedWith: recipients.map((entry) => entry.userName || entry.userId),
+    fromUser: activeShares.find((share) => share.fromUser)?.fromUser || null,
+    recipients,
+    permissions
+  };
+}
+
+function templateShareInfoKeys(item = {}) {
+  return [...new Set(
+    [item.id, item.templateId, item.legacyTemplateId, item.title, item.name]
+      .map((value) => trimText(value, 128))
+      .filter(Boolean)
+  )];
+}
+
+function assignTemplateShareInfo(target = {}, item = {}, shareInfo = {}) {
+  const strictKeys = [...new Set(
+    [item.id, item.templateId, item.legacyTemplateId]
+      .map((value) => trimText(value, 128))
+      .filter(Boolean)
+  )];
+  for (const key of strictKeys) {
+    target[key] = shareInfo;
+  }
+  const legacyKeys = [...new Set(
+    [item.title, item.name]
+      .map((value) => trimText(value, 128))
+      .filter(Boolean)
+  )];
+  for (const key of legacyKeys) {
+    if (target[key]) continue;
+    target[key] = shareInfo;
+  }
+  return target;
+}
+
+function buildTemplateShareMutationResult(template = {}) {
+  const shareInfo = normalizeTemplateShareSummary(template);
+  const templateId = trimText(template.id || template.templateId, 64);
+  return {
+    templateId,
+    templateUid: templateId,
+    shared: shareInfo.shared,
+    sharedWith: shareInfo.sharedWith,
+    fromUser: shareInfo.fromUser,
+    recipients: shareInfo.recipients,
+    entries: shareInfo.recipients,
+    permissions: shareInfo.permissions
+  };
+}
+
+function buildTemplateShareInfoLookup(template = {}) {
+  const shareInfo = normalizeTemplateShareSummary(template);
+  return assignTemplateShareInfo({}, template, shareInfo);
 }
 
 function buildTemplatesResponse(rows = [], sharesByTemplate = new Map(), auth = {}) {
@@ -312,26 +413,7 @@ function buildTemplatesResponse(rows = [], sharesByTemplate = new Map(), auth = 
 
   const templateShareInfo = {};
   for (const item of items) {
-    const recipients = item.shares
-      .filter((share) => String(share.status || "").toLowerCase() === "active")
-      .map((share) => ({
-        userId: share.userId || "",
-        userName: share.userName || share.userId || "",
-        permission: permissionForClient(share.permission)
-      }));
-    const sharedWith = recipients.map((entry) => entry.userName || entry.userId);
-    const permissions = recipients.reduce((map, entry) => {
-      const key = trimText(entry.userId || entry.userName, 128);
-      if (key) map[key] = permissionForClient(entry.permission);
-      return map;
-    }, {});
-    templateShareInfo[item.title] = {
-      shared: sharedWith.length > 0,
-      sharedWith,
-      fromUser: item.shares.find((share) => share.fromUser)?.fromUser || null,
-      recipients,
-      permissions
-    };
+    assignTemplateShareInfo(templateShareInfo, item, normalizeTemplateShareSummary(item));
   }
 
   return {
@@ -437,6 +519,32 @@ async function resolveUserForShare(entry = {}) {
   };
 }
 
+async function resolveActorTemplateSharePermission(templateUid = "", auth = {}) {
+  const cleanTemplateUid = trimText(templateUid, 64);
+  if (!cleanTemplateUid) return "";
+  if (isAdminAuth(auth)) return "owner";
+
+  const actorLookup = trimText(auth.sub || auth.id || auth.userId || auth.userUid || auth.user_uid || auth.username || auth.name || "", 128);
+  if (!actorLookup) return "";
+
+  const [rows] = await mysqlPool.execute(
+    `
+      SELECT ts.permission
+      FROM template_shares ts
+      LEFT JOIN users u ON u.user_uid = ts.to_user_uid
+      WHERE ts.template_uid = ?
+        AND ts.status = 'active'
+        AND (ts.expires_at IS NULL OR ts.expires_at > NOW())
+        AND (ts.to_user_uid = ? OR u.username = ? OR u.name = ? OR CAST(u.id AS CHAR) = ?)
+      ORDER BY ts.updated_at DESC, ts.id DESC
+      LIMIT 1
+    `,
+    [cleanTemplateUid, actorLookup, actorLookup, actorLookup, actorLookup]
+  );
+
+  return sharePermissionCode(rows[0]?.permission || "");
+}
+
 async function buildTemplateDetail(row) {
   const sharesByTemplate = await fetchShares([row.template_uid]);
   return {
@@ -524,7 +632,8 @@ export async function createTemplate(payload = {}, auth = {}) {
 export async function updateTemplate(templateId, payload = {}, auth = {}) {
   assertMySQLReady();
   const current = await resolveTemplate(templateId);
-  if (!canManageTemplateRow(current, auth)) throw forbidden("No permission to update template");
+  const actorSharePermission = await resolveActorTemplateSharePermission(current.template_uid, auth);
+  if (!canEditTemplateRow(current, auth, actorSharePermission)) throw forbidden("No permission to update template");
   const normalized = normalizeTemplatePayload(payload, current);
 
   await mysqlPool.execute(
@@ -564,7 +673,8 @@ export async function updateTemplate(templateId, payload = {}, auth = {}) {
 export async function deleteTemplate(templateId, auth = {}) {
   assertMySQLReady();
   const current = await resolveTemplate(templateId);
-  if (!canManageTemplateRow(current, auth)) throw forbidden("No permission to delete template");
+  const actorSharePermission = await resolveActorTemplateSharePermission(current.template_uid, auth);
+  if (!canManageTemplateRow(current, auth, actorSharePermission)) throw forbidden("No permission to delete template");
 
   const [childRows] = await mysqlPool.execute("SELECT template_uid FROM templates WHERE parent_template_uid = ?", [current.template_uid]);
   const templateUids = [current.template_uid, ...childRows.map((row) => row.template_uid)];
@@ -576,14 +686,85 @@ export async function deleteTemplate(templateId, auth = {}) {
 }
 
 function normalizeShareEntries(payload = {}) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.entries)) return payload.entries;
-  if (Array.isArray(payload.recipients)) return payload.recipients;
-  if (Array.isArray(payload.sharedWith)) return payload.sharedWith;
-  if (Array.isArray(payload.users)) return payload.users;
-  if (Array.isArray(payload.userIds)) return payload.userIds.map((userId) => ({ userId }));
-  if (payload.userId || payload.userUid || payload.username) return [payload];
-  return [];
+  const source = payload && typeof payload === "object" ? payload : {};
+  const defaultPermission = normalizePermission(source.permission || source.role || "read");
+  const permissionMap = source.permissions && typeof source.permissions === "object" ? source.permissions : {};
+  const sharePermissionMap = source.sharePermissions && typeof source.sharePermissions === "object" ? source.sharePermissions : {};
+  const entries = [];
+
+  const addEntry = (entry, fallbackPermission = defaultPermission) => {
+    if (entry === undefined || entry === null) return;
+    if (typeof entry === "string") {
+      const userId = trimText(entry, 128);
+      if (!userId) return;
+      entries.push({ userId, userName: userId, permission: normalizePermission(fallbackPermission) });
+      return;
+    }
+    if (typeof entry !== "object") return;
+    const userId = trimText(entry.userId || entry.userUid || entry.id || entry.username || entry.userName || entry.name || "", 128);
+    if (!userId) return;
+    const userName = trimText(entry.userName || entry.name || entry.username || userId, 128) || userId;
+    const permission = normalizePermission(entry.permission || entry.role || fallbackPermission || "read");
+    entries.push({
+      userId,
+      userName,
+      permission,
+      note: trimText(entry.note || "", 255)
+    });
+  };
+
+  if (Array.isArray(payload)) payload.forEach((entry) => addEntry(entry));
+  if (Array.isArray(source.entries)) source.entries.forEach((entry) => addEntry(entry));
+  if (Array.isArray(source.recipients)) source.recipients.forEach((entry) => addEntry(entry));
+  if (Array.isArray(source.users)) source.users.forEach((entry) => addEntry(entry));
+  if (Array.isArray(source.userIds)) {
+    source.userIds.forEach((userId) => {
+      const key = trimText(userId, 128);
+      if (!key) return;
+      addEntry({
+        userId: key,
+        userName: key,
+        permission: permissionMap[key] || sharePermissionMap[key] || defaultPermission
+      });
+    });
+  }
+  if (Array.isArray(source.sharedWith)) {
+    source.sharedWith.forEach((value) => {
+      const key = trimText(value, 128);
+      if (!key) return;
+      addEntry({
+        userId: key,
+        userName: key,
+        permission: permissionMap[key] || sharePermissionMap[key] || defaultPermission
+      });
+    });
+  }
+
+  if (
+    !Array.isArray(payload) &&
+    (source.userId || source.userUid || source.id || source.username || source.userName || source.name)
+  ) {
+    addEntry(source);
+  }
+
+  if (!entries.length) {
+    for (const [key, permission] of Object.entries(permissionMap)) {
+      addEntry({ userId: key, userName: key, permission });
+    }
+  }
+
+  const deduped = new Map();
+  for (const entry of entries) {
+    const key = trimText(entry.userId || entry.userName, 128).toLowerCase();
+    if (!key) continue;
+    deduped.set(key, {
+      userId: trimText(entry.userId || entry.userName, 128),
+      userName: trimText(entry.userName || entry.userId, 128),
+      permission: normalizePermission(entry.permission),
+      note: trimText(entry.note || "", 255)
+    });
+  }
+  return [...deduped.values()];
 }
 
 function nowText(date = new Date()) {
@@ -755,13 +936,13 @@ async function createProjectFromTaskTemplate(connection, template = {}, payload 
 export async function shareTemplate(templateId, payload = {}, auth = {}) {
   assertMySQLReady();
   const current = await resolveTemplate(templateId);
-  if (!canManageTemplateRow(current, auth)) throw forbidden("No permission to share template");
+  const actorSharePermission = await resolveActorTemplateSharePermission(current.template_uid, auth);
+  if (!canManageTemplateRow(current, auth, actorSharePermission)) throw forbidden("No permission to share template");
 
   await mysqlPool.execute("UPDATE template_shares SET status = 'revoked' WHERE template_uid = ?", [current.template_uid]);
   const entries = normalizeShareEntries(payload);
   for (const entry of entries) {
-    const normalizedEntry = typeof entry === "string" ? { userId: entry } : entry || {};
-    const user = await resolveUserForShare(normalizedEntry);
+    const user = await resolveUserForShare(entry);
     if (!user?.userId) continue;
     await mysqlPool.execute(
       `
@@ -782,8 +963,8 @@ export async function shareTemplate(templateId, payload = {}, auth = {}) {
         current.template_uid,
         actorId(auth),
         user.userId,
-        normalizePermission(normalizedEntry.permission),
-        trimText(normalizedEntry.note || "", 255),
+        normalizePermission(entry.permission),
+        trimText(entry.note || "", 255),
         stringifyJson(
           {
             userName: user.userName,
@@ -795,13 +976,19 @@ export async function shareTemplate(templateId, payload = {}, auth = {}) {
     );
   }
 
-  return buildTemplateDetail(await resolveTemplate(current.template_uid));
+  const detail = await buildTemplateDetail(await resolveTemplate(current.template_uid));
+  return {
+    ...detail,
+    shareResult: buildTemplateShareMutationResult(detail.template),
+    templateShareInfo: buildTemplateShareInfoLookup(detail.template)
+  };
 }
 
 export async function unshareTemplate(templateId, userId, auth = {}) {
   assertMySQLReady();
   const current = await resolveTemplate(templateId);
-  if (!canManageTemplateRow(current, auth)) throw forbidden("No permission to share template");
+  const actorSharePermission = await resolveActorTemplateSharePermission(current.template_uid, auth);
+  if (!canManageTemplateRow(current, auth, actorSharePermission)) throw forbidden("No permission to share template");
   const cleanUserId = trimText(userId, 64);
   if (!cleanUserId) throw badRequest("userId is required");
   const [users] = await mysqlPool.execute(
@@ -817,7 +1004,12 @@ export async function unshareTemplate(templateId, userId, auth = {}) {
     `,
     [current.template_uid, targetUserId]
   );
-  return buildTemplateDetail(await resolveTemplate(current.template_uid));
+  const detail = await buildTemplateDetail(await resolveTemplate(current.template_uid));
+  return {
+    ...detail,
+    shareResult: buildTemplateShareMutationResult(detail.template),
+    templateShareInfo: buildTemplateShareInfoLookup(detail.template)
+  };
 }
 
 export async function copyTemplate(templateId, payload = {}, auth = {}) {
@@ -905,10 +1097,15 @@ export async function applyTemplate(templateId, payload = {}, auth = {}) {
 export const __private__ = {
   buildMySQLUnavailableError,
   buildTemplatesResponse,
+  buildTemplateShareInfoLookup,
+  buildTemplateShareMutationResult,
+  canEditTemplateRow,
   canManageTemplateRow,
   canReadTemplateRow,
   mapShareRow,
   mapTemplateRow,
   normalizeShareEntries,
+  normalizeTemplateShareSummary,
+  sharePermissionCode,
   normalizeTemplatePayload
 };

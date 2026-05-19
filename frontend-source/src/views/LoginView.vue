@@ -222,7 +222,7 @@ async function resetPasswordByPhone() {
               <option>AIGC</option>
               <option>三维视觉部</option>
               <option>动效设计</option>
-              <option>后期合成</option>
+              <option>视效包装</option>
             </select>
           </label>
           <label><span>职位</span>
@@ -231,7 +231,7 @@ async function resetPasswordByPhone() {
               <option>角色建模</option>
               <option>AIGC设计</option>
               <option>动效设计</option>
-              <option>后期合成</option>
+              <option>视效包装</option>
             </select>
           </label>
           <label><span>姓名</span><input v-model="registerForm.name" required /></label>

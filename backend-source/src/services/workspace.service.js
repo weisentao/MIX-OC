@@ -1,6 +1,7 @@
-﻿import { isMySQLReady, mysqlPool } from "../db/mysql.js";
+import { isMySQLReady, mysqlPool } from "../db/mysql.js";
 import { createTaskCommentNotificationEvents } from "./notification-events.service.js";
 import { listTemplates } from "./template.service.js";
+import { resolveDepartmentFilterValues, resolveDepartmentMeta, findDepartmentTaxonomyByKey } from "../utils/department-taxonomy.js";
 
 const MYSQL_UNAVAILABLE_MESSAGE = "MySQL unavailable for modular workspace API";
 const OPEN_TASK_STATUSES = new Set(["active", "todo", "open"]);
@@ -511,6 +512,9 @@ function mapComment(row) {
 function mapAddressBookEntry(row) {
   const relationType = String(row.relation_type || row.relationType || "").trim().toLowerCase();
   const departmentName = row.department_name || row.department || "";
+  const departmentMeta = resolveDepartmentMeta(departmentName);
+  const canonicalRoot = departmentMeta.departmentKey ? findDepartmentTaxonomyByKey(departmentMeta.departmentKey) : null;
+  const departmentLabel = canonicalRoot?.label || departmentMeta.displayDepartment || departmentName;
   return {
     id: row.contact_uid || row.user_uid || row.username,
     contactId: row.contact_uid || "",
@@ -522,7 +526,12 @@ function mapAddressBookEntry(row) {
     departmentId: row.department_uid || "",
     department: departmentName,
     departmentName: departmentName,
-    departmentPath: row.department_path || departmentName,
+    departmentKey: departmentMeta.departmentKey || "",
+    departmentAliasKey: departmentMeta.childDepartmentKey || "",
+    displayDepartment: departmentMeta.displayDepartment || departmentName,
+    departmentLabel,
+    canonicalDepartment: departmentLabel,
+    departmentPath: row.department_path || departmentMeta.departmentPath || departmentName,
     departmentEn: row.department_en || "",
     job: row.job || "",
     role: row.role || "employee",
@@ -550,28 +559,47 @@ function mapContactProfile(row = {}) {
 }
 
 function mapDepartment(row) {
+  const departmentName = row.name || "";
+  const departmentMeta = resolveDepartmentMeta(departmentName);
+  const canonicalRoot = departmentMeta.departmentKey ? findDepartmentTaxonomyByKey(departmentMeta.departmentKey) : null;
+  const displayDepartment = departmentMeta.displayDepartment || departmentName;
+  const departmentLabel = canonicalRoot?.label || displayDepartment;
   return {
     id: row.department_uid,
     departmentId: row.department_uid,
-    name: row.name || "",
+    name: departmentName,
+    label: departmentLabel,
+    departmentKey: departmentMeta.departmentKey || "",
+    departmentAliasKey: departmentMeta.childDepartmentKey || "",
+    displayDepartment,
+    canonicalDepartment: departmentLabel,
+    departmentPath: departmentMeta.departmentPath || departmentName,
     nameEn: row.name_en || "",
     parentDepartmentId: row.parent_department_uid || "",
     managerUserId: row.manager_user_uid || "",
     status: row.status || "active",
-    sortOrder: Number(row.sort_order || 0)
+    sortOrder: Number(row.sort_order || 0),
+    taxonomyOrder: departmentMeta.departmentOrder
   };
 }
 
 function mapProjectMember(row) {
+  const departmentName = row.department || row.department_name || "";
+  const departmentMeta = resolveDepartmentMeta(departmentName);
+  const memberName = row.member_name || row.name || row.display_name || "";
   return {
     id: row.member_uid || row.user_uid || row.member_name,
     memberId: row.member_uid || "",
     projectId: row.project_uid || "",
     userId: row.user_uid || "",
+    userUid: row.user_uid || "",
     username: row.username || "",
-    name: row.member_name || row.name || row.display_name || "",
+    memberName: memberName,
+    name: memberName,
     role: row.member_role || "readonly",
-    department: row.department || row.department_name || "",
+    department: departmentName,
+    departmentKey: departmentMeta.departmentKey || "",
+    displayDepartment: departmentMeta.displayDepartment || departmentName,
     departmentEn: row.department_en || "",
     status: row.status || "active",
     sortOrder: Number(row.sort_order || 0)
@@ -598,13 +626,17 @@ function memberEntryKey(entry = {}) {
 
 function normalizeMemberEntry(rawEntry, fallbackRole = "readonly") {
   if (rawEntry && typeof rawEntry === "object" && !Array.isArray(rawEntry)) {
-    const identity = String(
+    const userUid = String(
       rawEntry.userId ||
         rawEntry.userUid ||
         rawEntry.toUserId ||
         rawEntry.toUserUid ||
         rawEntry.username ||
         rawEntry.toUsername ||
+        ""
+    ).trim();
+    const identity = String(
+      userUid ||
         rawEntry.name ||
         rawEntry.memberName ||
         ""
@@ -612,6 +644,7 @@ function normalizeMemberEntry(rawEntry, fallbackRole = "readonly") {
     const memberName = String(rawEntry.name || rawEntry.memberName || identity).trim();
     return {
       identity,
+      userUid,
       memberName,
       role: normalizeProjectMemberRole(rawEntry.role || rawEntry.memberRole || fallbackRole),
       strictResolve: Boolean(rawEntry.userId || rawEntry.userUid || rawEntry.toUserId || rawEntry.toUserUid || rawEntry.username || rawEntry.toUsername)
@@ -621,6 +654,7 @@ function normalizeMemberEntry(rawEntry, fallbackRole = "readonly") {
   const clean = String(rawEntry || "").trim();
   return {
     identity: clean,
+    userUid: "",
     memberName: clean,
     role: normalizeProjectMemberRole(fallbackRole),
     strictResolve: false
@@ -705,13 +739,14 @@ function mapTask(row, comments = []) {
 
 function mapProject(row, tasks = [], members = [], tags = []) {
   const payload = parseProjectPayload(row);
+  const memberItems = members.map((member) => mapProjectMember(member));
   const memberRoles = {};
   const memberNames = [];
-  members.forEach((member) => {
-    const name = member.member_name || "";
+  memberItems.forEach((member) => {
+    const name = member.memberName || member.name || "";
     if (!name) return;
     memberNames.push(name);
-    memberRoles[name] = member.member_role || "readonly";
+    memberRoles[name] = member.role || "readonly";
   });
 
   return {
@@ -725,6 +760,8 @@ function mapProject(row, tasks = [], members = [], tags = []) {
     status: normalizeProjectStatus(row.status, row.archived),
     owner: row.owner_text || payload.owner || "",
     members: memberNames,
+    memberItems,
+    memberObjects: memberItems,
     memberRoles,
     tags: tags.map((tag) => tag.tag_name || tag.name).filter(Boolean),
     syncSchedule: payload.syncSchedule !== false,
@@ -736,13 +773,23 @@ function mapProject(row, tasks = [], members = [], tags = []) {
 }
 
 function mapBootstrapUser(row = {}) {
+  const departmentName = row.department || "";
+  const departmentMeta = resolveDepartmentMeta(departmentName);
+  const canonicalRoot = departmentMeta.departmentKey ? findDepartmentTaxonomyByKey(departmentMeta.departmentKey) : null;
+  const departmentLabel = canonicalRoot?.label || departmentMeta.displayDepartment || departmentName;
   return {
     id: row.user_uid || String(row.id || ""),
     userId: row.user_uid || String(row.id || ""),
     userUid: row.user_uid || "",
     username: row.username || "",
     name: row.name || row.username || "",
-    department: row.department || "",
+    department: departmentName,
+    departmentKey: departmentMeta.departmentKey || "",
+    departmentAliasKey: departmentMeta.childDepartmentKey || "",
+    displayDepartment: departmentMeta.displayDepartment || departmentName,
+    departmentLabel,
+    canonicalDepartment: departmentLabel,
+    departmentPath: departmentMeta.departmentPath || departmentName,
     role: row.role || "employee",
     status: row.status || "active",
     job: row.job || "",
@@ -783,7 +830,16 @@ async function fetchProjectMembers(projectUids = []) {
   const placeholders = projectUids.map(() => "?").join(", ");
   const [rows] = await mysqlPool.execute(
     `
-      SELECT project_uid, member_name, member_role
+      SELECT
+        member_uid,
+        project_uid,
+        user_uid,
+        member_name,
+        member_role,
+        department,
+        department_en,
+        status,
+        sort_order
       FROM project_members
       WHERE project_uid IN (${placeholders}) AND status = 'active'
       ORDER BY sort_order ASC, id ASC
@@ -2406,7 +2462,7 @@ export async function addTaskComment(taskId, payload = {}, auth = {}) {
 export async function listAddressBook(query = {}) {
   assertMySQLReady();
   const keyword = String(query.q || query.keyword || "").trim();
-  const departmentId = String(query.departmentId || query.department_id || "").trim();
+  const departmentId = String(query.departmentId || query.department_id || query.department || "").trim();
   const limit = Math.min(Math.max(Number(query.limit || 100), 1), 200);
   const where = ["ab.status = 'active'"];
   const params = [];
@@ -2416,8 +2472,10 @@ export async function listAddressBook(query = {}) {
     params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
   }
   if (departmentId) {
-    where.push("ab.department_uid = ?");
-    params.push(departmentId);
+    const aliases = resolveDepartmentFilterValues(departmentId);
+    const placeholders = aliases.map(() => "?").join(", ");
+    where.push(`(ab.department_uid = ? OR ab.department_name IN (${placeholders}) OR u.department IN (${placeholders}))`);
+    params.push(departmentId, ...aliases, ...aliases);
   }
 
   const [rows] = await mysqlPool.execute(
@@ -2464,7 +2522,42 @@ export async function listDepartments() {
       ORDER BY sort_order ASC, id ASC
     `
   );
-  return rows.map(mapDepartment);
+  const mapped = rows.map(mapDepartment);
+  const pickedByRoot = new Map();
+  const uncategorized = [];
+
+  for (const item of mapped) {
+    if (!item.departmentKey) {
+      uncategorized.push(item);
+      continue;
+    }
+    const existing = pickedByRoot.get(item.departmentKey);
+    if (!existing) {
+      pickedByRoot.set(item.departmentKey, item);
+      continue;
+    }
+    const existingIsRootName = String(existing.name || "").trim() === String(existing.displayDepartment || "").trim();
+    const currentIsRootName = String(item.name || "").trim() === String(item.displayDepartment || "").trim();
+    if (!existingIsRootName && currentIsRootName) {
+      pickedByRoot.set(item.departmentKey, item);
+      continue;
+    }
+    if (Number(item.sortOrder || Number.MAX_SAFE_INTEGER) < Number(existing.sortOrder || Number.MAX_SAFE_INTEGER)) {
+      pickedByRoot.set(item.departmentKey, item);
+    }
+  }
+
+  const canonical = [...pickedByRoot.values()].sort(
+    (a, b) =>
+      Number(a.taxonomyOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.taxonomyOrder ?? Number.MAX_SAFE_INTEGER) ||
+      Number(a.sortOrder || 0) - Number(b.sortOrder || 0)
+  );
+  const rest = uncategorized.sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+
+  return [...canonical, ...rest].map((item) => {
+    const { taxonomyOrder, ...data } = item;
+    return data;
+  });
 }
 
 export async function listContacts(auth = {}, query = {}) {
@@ -2486,8 +2579,10 @@ export async function listContacts(auth = {}, query = {}) {
     params.push(relationType);
   }
   if (departmentId) {
-    where.push("(ab.department_uid = ? OR ab.department_name = ? OR u.department = ?)");
-    params.push(departmentId, departmentId, departmentId);
+    const aliases = resolveDepartmentFilterValues(departmentId);
+    const placeholders = aliases.map(() => "?").join(", ");
+    where.push(`(ab.department_uid = ? OR ab.department_name IN (${placeholders}) OR u.department IN (${placeholders}))`);
+    params.push(departmentId, ...aliases, ...aliases);
   }
   if (keyword) {
     where.push(`(
@@ -2897,6 +2992,18 @@ export async function shareProject(projectId, payload = {}, auth = {}) {
   const memberRole = normalizeProjectMemberRole(payload.memberRole || payload.role || (permission === "write" ? "editor" : "readonly"));
   const expiresAt = payload.expiresAt ? String(payload.expiresAt).replaceAll("/", "-").slice(0, 10) : null;
   const shareUid = makeUid("share");
+
+  await mysqlPool.execute(
+    `
+      UPDATE shares
+      SET status = 'revoked', updated_at = CURRENT_TIMESTAMP
+      WHERE resource_type = 'project'
+        AND resource_uid = ?
+        AND to_user_uid = ?
+        AND status = 'active'
+    `,
+    [project.project_uid, targetUser.user_uid]
+  );
 
   await mysqlPool.execute(
     `

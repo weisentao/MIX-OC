@@ -1,4 +1,10 @@
-import { idsEqual, normalizeDate, normalizeTaskModuleKey, nowText } from "../helpers.js";
+import {
+  idsEqual,
+  normalizeDate,
+  normalizeDepartmentFields,
+  normalizeTaskModuleKey,
+  nowText
+} from "../helpers.js";
 import workspaceApi from "../../../services/workspaceApi.js";
 import { backendSyncToast, isLoginExpiredApiError } from "../../../services/apiErrors.js";
 import { handleWorkspaceAuthFailure } from "./appActions.js";
@@ -74,6 +80,7 @@ function mergeBackendTask(task, response) {
 }
 
 function taskPayload(task, projectId = null) {
+  const department = normalizeDepartmentFields(task);
   return {
     id: task.id,
     taskId: task.taskId || task.taskUid || "",
@@ -84,9 +91,11 @@ function taskPayload(task, projectId = null) {
     type: task.type,
     note: task.note,
     module: task.module,
-    department: task.department,
-    departmentKey: task.departmentKey,
-    departmentLabel: task.departmentLabel,
+    department: department.department,
+    displayDepartment: department.displayDepartment,
+    departmentPath: department.departmentPath,
+    departmentKey: department.departmentKey,
+    departmentLabel: department.departmentLabel,
     owner: task.owner,
     time: task.time,
     startDate: task.startDate,
@@ -102,7 +111,7 @@ function taskPayload(task, projectId = null) {
 function currentTaskOwner(store) {
   const user = store.currentUser || {};
   const name = String(user.name || user.username || "").trim() || "当前用户";
-  const department = String(user.department || "").trim() || "项目成员";
+  const department = normalizeDepartmentFields(user).displayDepartment || "项目成员";
   return `${department}: ${name}`;
 }
 
@@ -166,18 +175,21 @@ export const taskActions = {
     if (this.activeView !== "template" && !projectId) return blockMissingBackendId(this, "任务下发需要先同步项目到后端");
     const startDate = normalizeDate(payload.startDate) || todaySlash();
     const endDate = normalizeDate(payload.endDate) || startDate;
-    const department = String(payload.department || payload.departmentLabel || "").trim();
-    const departmentLabel = String(payload.departmentLabel || payload.department || "").trim();
-    const departmentKey = String(payload.departmentKey || "").trim();
+    const normalizedDepartment = normalizeDepartmentFields(payload, {
+      department: this.currentUser?.department || "项目成员",
+      departmentKey: payload.module || ""
+    });
     const task = {
       id: Date.now(),
       title: payload.title.trim(),
       type: payload.type || "流程",
       note: payload.note?.trim() || "暂无备注，可点击备注修改",
       module: normalizeTaskModuleKey(payload.module),
-      department,
-      departmentKey,
-      departmentLabel,
+      department: normalizedDepartment.department,
+      displayDepartment: normalizedDepartment.displayDepartment,
+      departmentPath: normalizedDepartment.departmentPath,
+      departmentKey: normalizedDepartment.departmentKey,
+      departmentLabel: normalizedDepartment.departmentLabel,
       owner: currentTaskOwner(this),
       time: nowText(),
       startDate,
@@ -469,7 +481,7 @@ export const taskActions = {
     }
     task.comments.push({
       user: this.currentUser?.name || this.currentUser?.username || "当前用户",
-      dept: this.currentUser?.department || "项目成员",
+      dept: normalizeDepartmentFields(this.currentUser).displayDepartment || "项目成员",
       tone: "pink",
       time: nowText(),
       text: clean

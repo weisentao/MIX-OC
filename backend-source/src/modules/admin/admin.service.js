@@ -14,28 +14,28 @@ import {
 import { deleteBoard, updateBoard } from "../../services/board.service.js";
 import { normalizeRole } from "../../middlewares/auth.js";
 
-const MYSQL_UNAVAILABLE_MESSAGE = "MySQL unavailable for admin API";
+const MYSQL_UNAVAILABLE_MESSAGE = "管理员接口暂时不可用（MySQL 未就绪）";
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 20;
 
 const DEFAULT_ROLES = [
-  ["admin", "Super Administrator", "Full backend management access."],
-  ["manager", "Business Administrator", "Department or project management access."],
-  ["employee", "Employee", "Read-first workspace member."]
+  ["admin", "超级管理员", "拥有后台全部管理权限。"],
+  ["manager", "业务管理员", "拥有部门或项目管理权限。"],
+  ["employee", "成员", "默认以只读为主的工作台成员。"]
 ];
 
 const DEFAULT_PERMISSIONS = [
-  ["admin.dashboard.read", "Dashboard Read", "Read admin dashboard statistics."],
-  ["admin.users.read", "Users Read", "Read users and account status."],
-  ["admin.users.write", "Users Write", "Create and update users."],
-  ["admin.users.delete", "Users Delete", "Archive or delete users."],
-  ["admin.permissions.read", "Permissions Read", "Read roles and permission matrix."],
-  ["admin.permissions.write", "Permissions Write", "Update role permission assignments."],
-  ["admin.system.read", "System Read", "Read system status and configuration."],
-  ["admin.system.write", "System Write", "Update safe system configuration keys."],
-  ["admin.audit.read", "Audit Read", "Read operation audit logs."],
-  ["admin.workspace.write", "Workspace Write", "Create and update workspace records."],
-  ["admin.workspace.delete", "Workspace Delete", "Archive or delete workspace records."]
+  ["admin.dashboard.read", "仪表盘查看", "查看管理后台统计数据。"],
+  ["admin.users.read", "用户查看", "查看用户与账号状态。"],
+  ["admin.users.write", "用户编辑", "创建和更新用户。"],
+  ["admin.users.delete", "用户删除", "归档或删除用户。"],
+  ["admin.permissions.read", "权限查看", "查看角色与权限矩阵。"],
+  ["admin.permissions.write", "权限编辑", "更新角色权限分配。"],
+  ["admin.system.read", "系统查看", "查看系统状态与配置。"],
+  ["admin.system.write", "系统编辑", "更新安全的系统配置项。"],
+  ["admin.audit.read", "审计查看", "查看操作审计日志。"],
+  ["admin.workspace.write", "工作台编辑", "创建和更新工作台记录。"],
+  ["admin.workspace.delete", "工作台删除", "归档或删除工作台记录。"]
 ];
 
 const DEFAULT_ROLE_PERMISSIONS = {
@@ -285,7 +285,7 @@ function normalizeAdminAssignableRole(value) {
   };
   const normalizedRole = frontendSafeAliases[role] || role;
   if (["admin", "manager", "employee"].includes(normalizedRole)) return normalizedRole;
-  throw badRequest("role is invalid");
+  throw badRequest("角色不合法");
 }
 
 function adminWorkspaceAuth(auth = {}) {
@@ -306,7 +306,7 @@ function normalizeStatus(value, fallback = "active") {
 
 function assertAdminAccess(auth = {}) {
   if (normalizeRole(auth) !== "admin") {
-    throw forbidden("Admin permission required");
+    throw forbidden("需要管理员权限");
   }
   return { role: "admin" };
 }
@@ -1189,7 +1189,7 @@ function normalizePermissionPayload(payload = {}) {
       : [];
   const rolePermissions = Array.isArray(payload.rolePermissions) ? payload.rolePermissions : [];
   if (!assignments.length && !rolePermissions.length) {
-    throw badRequest("No permission changes supplied");
+    throw badRequest("未提供权限变更内容");
   }
   return { assignments, rolePermissions };
 }
@@ -1206,7 +1206,7 @@ export async function updateAdminPermissions(payload = {}, auth = {}) {
         const role = normalizeAdminAssignableRole(assignment.role || assignment.roleKey);
         const scopeType = trimText(assignment.scopeType, "global");
         const scopeId = trimText(assignment.scopeId || assignment.scopeUid);
-        if (!userId || !role) throw badRequest("userId and role are required");
+        if (!userId || !role) throw badRequest("userId 和 role 为必填项");
         await connection.execute(
           `
             INSERT INTO user_roles (user_uid, role_key, scope_type, scope_uid)
@@ -1222,7 +1222,7 @@ export async function updateAdminPermissions(payload = {}, auth = {}) {
       for (const entry of rolePermissions) {
         const role = normalizeAdminAssignableRole(entry.role || entry.roleKey);
         const permissions = Array.isArray(entry.permissions) ? entry.permissions.map(trimText).filter(Boolean) : [];
-        if (!role) throw badRequest("role is required");
+        if (!role) throw badRequest("role 为必填项");
         await connection.execute("DELETE FROM role_permissions WHERE role_key = ?", [role]);
         for (const permission of permissions) {
           await connection.execute(
@@ -1242,7 +1242,7 @@ export async function updateAdminPermissions(payload = {}, auth = {}) {
       auth,
       action: "update",
       resourceType: "permissions",
-      summary: "Update admin permissions",
+      summary: "更新管理后台权限",
       after: { assignments, rolePermissions }
     });
     return listAdminPermissions({}, auth);

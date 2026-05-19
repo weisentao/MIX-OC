@@ -21,6 +21,7 @@ const selectedRow = ref(null);
 const formOpen = ref(false);
 const formMode = ref("create");
 const formModel = reactive({});
+const tagLibraryOpen = ref(false);
 
 function syncStoredLoginUser() {
   try {
@@ -72,12 +73,18 @@ const scopeLabel = computed(() => `范围：${model.value.scope?.department || "
 const lastSync = computed(() => `消息 ${model.value.comments?.length || 0}`);
 const formTitle = computed(() => `${formMode.value === "edit" ? "编辑" : "新增"}${activeNav.value?.label || "记录"}`);
 const formSubmitLabel = computed(() => (formMode.value === "edit" ? "保存修改" : "创建记录"));
+const selectedProjectTags = computed(() => (Array.isArray(formModel.tags) ? formModel.tags : []).filter(Boolean));
+const availableProjectTags = computed(() =>
+  (store.tags || []).filter((tag) => tag?.name && !selectedProjectTags.value.includes(tag.name))
+);
+const showProjectTagPicker = computed(() => formOpen.value && ["projects", "project-detail", "overview", "department"].includes(activeKey.value));
 
 watch(activeKey, () => {
   activeFilter.value = "all";
   localQuery.value = "";
   selectedRow.value = filteredRows.value[0] || null;
   formOpen.value = false;
+  tagLibraryOpen.value = false;
 });
 
 watch(
@@ -495,8 +502,7 @@ function defaultFormFields(key) {
         ]
       },
       { key: "startDate", label: "开始时间" },
-      { key: "endDate", label: "结束时间" },
-      { key: "tags", label: "标签（用 # 分隔）", wide: true }
+      { key: "endDate", label: "结束时间" }
     ];
   }
   if (["tasks", "schedule"].includes(key)) {
@@ -540,7 +546,10 @@ function defaultRowActions(key) {
     { key: "edit", label: "编辑", icon: "edit" }
   ];
   if (["members", "member-detail", "accounts"].includes(key)) return [...common, { key: "reset", label: "重置", icon: "archive" }];
-  return [...common, { key: "archive", label: "归档", icon: "archive", tone: "danger" }];
+  if (["overview", "department", "projects", "project-detail"].includes(key)) {
+    return [...common, { key: "archive", label: "归档", icon: "archive", tone: "danger" }];
+  }
+  return common;
 }
 
 function buildDetailLists(key, row) {
@@ -648,6 +657,8 @@ function resetForm(seed = {}) {
   page.value.formFields.forEach((field) => {
     formModel[field.key] = seed[field.key] ?? "";
   });
+  formModel.tags = Array.isArray(seed.tags) ? [...new Set(seed.tags.filter(Boolean))] : [];
+  tagLibraryOpen.value = false;
 }
 
 function openCreate() {
@@ -667,13 +678,28 @@ function updateFormField({ key, value }) {
   formModel[key] = value;
 }
 
+function selectProjectTag(tag) {
+  if (!tag?.name || selectedProjectTags.value.includes(tag.name)) return;
+  formModel.tags = selectedProjectTags.value.concat(tag.name);
+  tagLibraryOpen.value = false;
+}
+
+function removeProjectTag(tagName) {
+  formModel.tags = selectedProjectTags.value.filter((name) => name !== tagName);
+}
+
+function tagColor(tagName) {
+  return store.getTag(tagName).color;
+}
+
+function tagLabel(tagName) {
+  return store.getTag(tagName).name;
+}
+
 function projectPayload(payload) {
   return {
     ...payload,
-    tags: String(payload.tags || "")
-      .split("#")
-      .map((tag) => tag.trim())
-      .filter(Boolean)
+    tags: selectedProjectTags.value
   };
 }
 
@@ -696,7 +722,7 @@ async function handleCrudSubmit() {
     if (formMode.value === "edit" && selectedRow.value?.id) {
       const found = store.findProjectWithGroup?.(selectedRow.value.id);
       if (found?.project) Object.assign(found.project, projectPayload(payload));
-      await callApi("项目更新", () => managerApi.updateProject(selectedRow.value.id, payload));
+      await callApi("项目更新", () => managerApi.updateProject(selectedRow.value.id, projectPayload(payload)));
     } else {
       const project = {
         id: Date.now(),
@@ -720,6 +746,7 @@ async function handleCrudSubmit() {
     await callApi("记录保存", () => managerApi.updateMember(selectedRow.value?.id || currentUser.value.id, payload));
   }
   formOpen.value = false;
+  tagLibraryOpen.value = false;
 }
 
 async function handleRowAction({ action, row }) {
@@ -736,15 +763,15 @@ async function handleRowAction({ action, row }) {
     return;
   }
   if (action === "archive") {
-    if (row.id && row.name) {
+    if (["overview", "department", "projects", "project-detail"].includes(activeKey.value) && row.id) {
       const found = store.findProjectWithGroup?.(row.id);
       if (found?.project) {
         found.project.status = "archived";
         found.project.archivedAt = new Date().toLocaleString("zh-CN", { hour12: false });
       }
       await callApi("项目归档", () => managerApi.archiveProject(row.id, { status: "archived" }));
-    } else if (row.id) {
-      await callApi("任务删除", () => managerApi.deleteTask(row.id, { soft: true }));
+    } else {
+      store.showToast("当前管理页暂不支持归档，已阻止误请求。");
     }
   }
 }
@@ -771,50 +798,145 @@ async function handleRowAction({ action, row }) {
       :scope="model.scope"
       :search="globalSearch"
     />
-    <ConsoleSection
-      v-else
-      :title="page.title"
-      :description="page.description"
-      :cards="page.cards"
-      :rows="filteredRows"
-      :columns="page.columns"
-      :filters="page.filters"
-      :active-filter="activeFilter"
-      :layout="sectionLayout"
-      :show-metrics="showSectionMetrics"
-      :dashboard-panels="dashboardPanels"
-      :chart-items="dashboardChartItems"
-      :trend-items="dashboardTrendItems"
-      :show-filters="activeKey !== 'overview'"
-      :query="localQuery"
-      :selected-row="selectedRow"
-      :detail-title="`${page.title}详情`"
-      :detail-fields="page.detailFields"
-      :detail-lists="selectedDetailLists"
-      :context-title="activeKey === 'projects' ? '项目目录' : `${page.title}目录`"
-      :context-subtitle="activeKey === 'projects' ? '我的负责、本部门项目' : '普通管理范围提示'"
-      :context-items="contextItems"
-      :context-hint="contextHintFor(activeKey)"
-      :quick-filters="quickFilters"
-      :primary-action-label="page.primaryActionLabel"
-      :row-actions="page.rowActions"
-      :form-open="formOpen"
-      :form-title="formTitle"
-      :form-fields="page.formFields"
-      :form-model="formModel"
-      :form-submit-label="formSubmitLabel"
-      scope-note="普通管理仅展示授权范围；项目管理员权限等同管理该项目。"
-      empty-text="当前范围暂无数据"
-      @create="openCreate"
-      @refresh="store.showToast('管理端数据已刷新')"
-      @filter="activeFilter = $event"
-      @update:query="localQuery = $event"
-      @select-row="selectedRow = $event"
-      @chart-navigate="navigateDashboardChart"
-      @row-action="handleRowAction"
-      @update-form-field="updateFormField"
-      @submit-form="handleCrudSubmit"
-      @close-form="formOpen = false"
-    />
+    <div v-else class="console-section-wrap">
+      <ConsoleSection
+        :title="page.title"
+        :description="page.description"
+        :cards="page.cards"
+        :rows="filteredRows"
+        :columns="page.columns"
+        :filters="page.filters"
+        :active-filter="activeFilter"
+        :layout="sectionLayout"
+        :show-metrics="showSectionMetrics"
+        :dashboard-panels="dashboardPanels"
+        :chart-items="dashboardChartItems"
+        :trend-items="dashboardTrendItems"
+        :show-filters="activeKey !== 'overview'"
+        :query="localQuery"
+        :selected-row="selectedRow"
+        :detail-title="`${page.title}详情`"
+        :detail-fields="page.detailFields"
+        :detail-lists="selectedDetailLists"
+        :context-title="activeKey === 'projects' ? '项目目录' : `${page.title}目录`"
+        :context-subtitle="activeKey === 'projects' ? '我的负责、本部门项目' : '普通管理范围提示'"
+        :context-items="contextItems"
+        :context-hint="contextHintFor(activeKey)"
+        :quick-filters="quickFilters"
+        :primary-action-label="page.primaryActionLabel"
+        :row-actions="page.rowActions"
+        :form-open="formOpen"
+        :form-title="formTitle"
+        :form-fields="page.formFields"
+        :form-model="formModel"
+        :form-submit-label="formSubmitLabel"
+        scope-note="普通管理仅展示授权范围；项目管理员权限等同管理该项目。"
+        empty-text="当前范围暂无数据"
+        @create="openCreate"
+        @refresh="store.showToast('管理端数据已刷新')"
+        @filter="activeFilter = $event"
+        @update:query="localQuery = $event"
+        @select-row="selectedRow = $event"
+        @chart-navigate="navigateDashboardChart"
+        @row-action="handleRowAction"
+        @update-form-field="updateFormField"
+        @submit-form="handleCrudSubmit"
+        @close-form="formOpen = false"
+      />
+      <Teleport to="body">
+        <div v-if="showProjectTagPicker" class="console-tag-picker">
+          <span>标签</span>
+          <div class="console-tag-picker-list">
+            <button
+              v-for="tagName in selectedProjectTags"
+              :key="`manager-selected-${tagName}`"
+              class="tag-pill active-tag-pill"
+              type="button"
+              :data-color="tagColor(tagName)"
+              title="移除标签"
+              @click="removeProjectTag(tagName)"
+            >
+              {{ tagLabel(tagName) }}
+            </button>
+            <button
+              class="tag-pill"
+              type="button"
+              title="从标签库选择标签"
+              aria-label="从标签库选择标签"
+              @click="tagLibraryOpen = !tagLibraryOpen"
+            >
+              +
+            </button>
+            <small v-if="!selectedProjectTags.length">暂无标签</small>
+          </div>
+          <div v-if="tagLibraryOpen" class="active-tag-popover console-tag-picker-popover">
+            <button
+              v-for="tag in availableProjectTags"
+              :key="`manager-library-${tag.name}`"
+              class="tag-pill active-tag-pill"
+              type="button"
+              :data-color="tag.color"
+              @click="selectProjectTag(tag)"
+            >
+              {{ tag.name }}
+            </button>
+            <span v-if="!availableProjectTags.length">标签库暂无可添加标签</span>
+          </div>
+        </div>
+      </Teleport>
+    </div>
   </ConsoleShell>
 </template>
+
+<style scoped>
+.console-tag-picker {
+  position: fixed;
+  z-index: 3001;
+  left: 50%;
+  bottom: calc(50% - 230px);
+  width: min(520px, calc(100vw - 40px));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.console-tag-picker > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.console-tag-picker-list {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+}
+
+.console-tag-picker .tag-pill {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #fff;
+  cursor: pointer;
+}
+
+.console-tag-picker-popover {
+  position: absolute;
+  right: 16px;
+  bottom: 54px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.16);
+}
+</style>

@@ -123,8 +123,8 @@ describe("resource timeline source contracts", () => {
     assertSomeBlockMatches(
       css,
       ".resource-workbench .resource-department-band",
-      /display:\s*inline-flex;[\s\S]*overflow:\s*hidden;/,
-      "sticky department headers must keep their label surface clipped to the fixed column"
+      /display:\s*flex;[\s\S]*overflow:\s*hidden;/,
+      "sticky department headers must stay block-level so collapsed bands do not flow into the timeline"
     );
     assertSomeBlockMatches(
       css,
@@ -132,6 +132,23 @@ describe("resource timeline source contracts", () => {
       /background:[\s\S]*box-shadow:/,
       "sticky department headers need an opaque surface over scrolled rows"
     );
+  });
+
+  it("keeps the collapsed department people count inside the fixed side column", async () => {
+    const css = await source("../../../styles/resource.css");
+
+    const finalDepartmentBand = finalBlockForSelector(css, ".resource-workbench .resource-department-band");
+    assert.match(finalDepartmentBand, /display:\s*flex;/, "department bands must occupy their own row when collapsed");
+    assert.match(finalDepartmentBand, /overflow:\s*hidden;/, "department band content must be clipped inside the side column");
+    assert.match(finalDepartmentBand, /inline-size:\s*var\(--resource-person-column-width,\s*210px\);/, "department band width must match the side column");
+
+    const collapsedBand = finalBlockForSelector(css, ".resource-workbench .resource-department-band.is-collapsed");
+    assert.match(collapsedBand, /display:\s*flex;/, "collapsed department bands must keep the same block flex layout");
+    assert.match(collapsedBand, /inline-size:\s*var\(--resource-person-column-width,\s*210px\);/, "collapsed department bands must remain in the side column");
+
+    const countLabel = finalBlockForSelector(css, ".resource-workbench .resource-department-band > span:not(.resource-department-caret)");
+    assert.match(countLabel, /flex:\s*0\s+0\s+auto;/, "people count label must not shrink or wrap away from the side column");
+    assert.match(countLabel, /margin-inline-start:\s*auto;/, "people count label must stay pinned inside the department band");
   });
 
   it("keeps resource timeline sources free of Vite error overlay markers", async () => {

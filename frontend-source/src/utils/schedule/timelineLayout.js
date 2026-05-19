@@ -1,7 +1,8 @@
 import { addDays, clampDateRange, daysBetween, formatSlashDate } from "./dateRange.js";
-import { getScheduleColorInfo } from "./scheduleColors.js";
+import { getScheduleColorInfo, normalizeScheduleModuleKey } from "./scheduleColors.js";
 
-export const SCHEDULE_DEPARTMENT_ORDER = ["项目管理", "AIGC", "美术设计", "三维动态", "动效设计", "后期合成"];
+export const SCHEDULE_DEPARTMENT_ORDER = ["项目管理", "AIGC", "美术设计", "三维动态", "动效设计", "视效包装"];
+const SCHEDULE_DEPARTMENT_KEY_ORDER = ["project", "aigc", "design", "threeD", "motion", "post"];
 
 const ROW_ORDER_STEP = 100;
 
@@ -43,7 +44,7 @@ function explicitRowOrder(item = {}) {
 
 export function getScheduleDepartmentRank(moduleValue) {
   const colorInfo = getScheduleColorInfo(moduleValue);
-  const index = SCHEDULE_DEPARTMENT_ORDER.indexOf(colorInfo.label);
+  const index = SCHEDULE_DEPARTMENT_KEY_ORDER.indexOf(colorInfo.key);
   return index >= 0 ? index : SCHEDULE_DEPARTMENT_ORDER.length;
 }
 
@@ -261,13 +262,14 @@ export function filterScheduleRows(items = [], rowFilter = "all", options = {}) 
   const showHiddenItems = Boolean(options.showHiddenItems);
   const filter = ["all", "schedule", "task"].includes(rowFilter) ? rowFilter : "all";
   const departmentFilter = String(options.departmentFilter || "全部").trim();
+  const departmentFilterKey = normalizeScheduleModuleKey(departmentFilter);
 
   const filteredRows = (Array.isArray(items) ? items : []).filter((item) => {
     if (!showHiddenItems && item.hidden) return false;
     if (filter !== "all" && getScheduleRowKind(item) !== filter) return false;
     if (departmentFilter && departmentFilter !== "全部") {
       const colorInfo = getScheduleColorInfo(item.module);
-      if (colorInfo.label !== departmentFilter && colorInfo.key !== departmentFilter) return false;
+      if (!departmentFilterKey || colorInfo.key !== departmentFilterKey) return false;
     }
     return true;
   });

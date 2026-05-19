@@ -132,7 +132,7 @@ test("assignment advice accepts scoped write or HR read permissions and denies r
 
   assert.equal(managerResponse.status, 200);
   assert.equal(employeeResponse.status, 403);
-  assert.equal(employeeResponse.body.message, "No permission to write");
+  assert.equal(employeeResponse.body.message, "无权限执行该操作");
 });
 
 test("resource force assign requires explicit permission without export fallback", async () => {
@@ -154,7 +154,7 @@ test("resource force assign requires explicit permission without export fallback
   assert.equal(exportOnlyResponse.status, 403);
   assert.deepEqual(exportOnlyResponse.body, {
     code: "FORBIDDEN",
-    message: "No permission to force assign",
+    message: "无权限执行该操作",
     requestId: "req-force-assign-export-deny"
   });
 });
@@ -193,7 +193,7 @@ test("requireRole returns uniform 403 body for denied roles", async () => {
   assert.equal(response.status, 403);
   assert.deepEqual(response.body, {
     code: "FORBIDDEN",
-    message: "No permission to access",
+    message: "无权限访问",
     requestId: "req-role-deny"
   });
 });
@@ -234,7 +234,7 @@ test("requirePermission returns uniform 403 body for missing permission", async 
   assert.equal(response.status, 403);
   assert.deepEqual(response.body, {
     code: "FORBIDDEN",
-    message: "No permission to delete",
+    message: "无权限执行该操作",
     requestId: "req-permission-deny"
   });
 });

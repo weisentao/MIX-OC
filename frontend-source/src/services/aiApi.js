@@ -14,7 +14,7 @@ function callClient(client, method, url, payload) {
     return client.request(config);
   }
   if (typeof client?.[method] !== "function") {
-    return Promise.reject(new Error(`Unsupported HTTP method: ${method}`));
+    return Promise.reject(new Error(`不支持的 HTTP 方法：${method}`));
   }
   return payload === undefined ? client[method](url) : client[method](url, payload);
 }

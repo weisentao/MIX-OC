@@ -16,14 +16,14 @@ const MODULE_DEPARTMENTS = {
   threeD: "三维动态设计部",
   threed: "三维动态设计部",
   motion: "动效设计部",
-  post: "后期合成部",
-  delivery: "后期合成部"
+  post: "视效包装部",
+  delivery: "视效包装部"
 };
 
 const FALLBACK_PEOPLE = [
   { id: "resource-design-lead", name: "设计负责人", role: "department_manager", department: "美术设计部", job: "美术组长", capacityDays: 12, avatar: "设" },
   { id: "resource-zhumin", name: "朱敏", role: "project_manager", department: "项目管理部", job: "项目经理", capacityDays: 10, avatar: "朱" },
-  { id: "resource-post-a", name: "后期同学 A", role: "employee", department: "后期合成部", job: "后期合成", capacityDays: 10, avatar: "后" },
+  { id: "resource-post-a", name: "视效同学 A", role: "employee", department: "视效包装部", job: "视效包装", capacityDays: 10, avatar: "视" },
   { id: "resource-anna", name: "安娜", role: "employee", department: "美术设计部", job: "视觉设计", capacityDays: 10, avatar: "安" }
 ];
 
@@ -34,8 +34,8 @@ const FALLBACK_PROJECT = {
   status: "active",
   startDate: "2026/05/15",
   endDate: "2026/05/24",
-  members: ["朱敏", "设计负责人", "安娜", "后期同学 A"],
-  memberRoles: { "朱敏": "manager", "设计负责人": "editor", "安娜": "editor", "后期同学 A": "editor" },
+  members: ["朱敏", "设计负责人", "安娜", "视效同学 A"],
+  memberRoles: { "朱敏": "manager", "设计负责人": "editor", "安娜": "editor", "视效同学 A": "editor" },
   tasks: [
     {
       id: "resource-task-brief",
@@ -74,7 +74,7 @@ const FALLBACK_PROJECT = {
       id: "resource-task-final-post",
       title: "成片精修与输出",
       module: "post",
-      owner: "后期合成部: 后期同学 A",
+      owner: "视效包装部: 视效同学 A",
       startDate: "2026/05/19",
       endDate: "2026/05/24",
       scheduleStatus: "todo",

@@ -380,11 +380,27 @@ describe("schedule UI actions", () => {
   it("updates schedule filters without mutating schedule items", () => {
     const store = createStore();
     const originalItems = store.schedulePlan.items;
-    const allowedDepartmentFilters = ["全部", "project", "design", "threeD", "post", "项目管理", "AIGC", "美术设计", "三维动态", "三维动画", "动效设计", "后期合成"];
+    const allowedDepartmentFilters = [
+      ["全部", "全部"],
+      ["project", "project"],
+      ["design", "design"],
+      ["threeD", "threeD"],
+      ["post", "post"],
+      ["项目管理", "项目管理"],
+      ["AIGC", "AIGC"],
+      ["美术设计", "美术设计"],
+      ["三维动态", "三维动态"],
+      ["动效设计", "动效设计"],
+      ["视效包装", "视效包装"],
+      ["三维动画", "threeD"],
+      ["三维动画设计部", "threeD"],
+      ["后期合成", "post"],
+      ["后期合成部", "post"]
+    ];
 
-    for (const filter of allowedDepartmentFilters) {
+    for (const [filter, expectedFilter] of allowedDepartmentFilters) {
       assert.equal(scheduleActions.setScheduleDepartmentFilter.call(store, filter), true);
-      assert.equal(store.scheduleUi.departmentFilter, filter);
+      assert.equal(store.scheduleUi.departmentFilter, expectedFilter);
       assert.equal(store.schedulePlan.items, originalItems);
     }
     assert.equal(scheduleActions.setScheduleRowFilter.call(store, "task"), true);
@@ -392,7 +408,7 @@ describe("schedule UI actions", () => {
     assert.equal(store.schedulePlan.items, originalItems);
     assert.equal(scheduleActions.setScheduleDepartmentFilter.call(store, "不存在部门"), false);
     assert.equal(scheduleActions.setScheduleRowFilter.call(store, "invalid"), false);
-    assert.equal(store.scheduleUi.departmentFilter, "后期合成");
+    assert.equal(store.scheduleUi.departmentFilter, "post");
     assert.equal(store.scheduleUi.rowFilter, "task");
     assert.equal(store.schedulePlan.items, originalItems);
   });

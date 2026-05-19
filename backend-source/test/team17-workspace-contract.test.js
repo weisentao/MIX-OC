@@ -60,7 +60,7 @@ test("team17 contact list contract supports department and keyword search with s
   assert.match(listSource, /const departmentId = String\(query\.departmentId \|\| query\.department_id \|\| query\.department \|\| ""\)\.trim\(\)/);
   assert.match(listSource, /const limit = Math\.min\(Math\.max\(Number\(query\.limit \|\| 100\), 1\), 200\)/);
   assert.match(listSource, /const offset = Math\.max\(Number\(query\.offset \|\| 0\), 0\)/);
-  assert.match(listSource, /ab\.department_uid = \? OR ab\.department_name = \? OR u\.department = \?/);
+  assert.match(listSource, /ab\.department_uid = \? OR ab\.department_name IN \(\$\{placeholders\}\) OR u\.department IN \(\$\{placeholders\}\)/);
   assert.match(listSource, /display_name LIKE \?/);
   assert.match(listSource, /ORDER BY department_name ASC, display_name ASC, c\.id ASC/);
   assert.match(source, /function mapContactProfile\(row = \{\}\)/);

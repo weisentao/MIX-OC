@@ -16,6 +16,12 @@ const availableTags = computed(() =>
   (store.tags || []).filter((tag) => tag?.name && !activeTags.value.includes(tag.name))
 );
 
+function findAvailableTag(name = "") {
+  const cleanName = String(name || "").replace("#", "").trim();
+  if (!cleanName) return null;
+  return availableTags.value.find((tag) => tag.name === cleanName) || null;
+}
+
 function tagDragOver(event) {
   if (![...event.dataTransfer.types].includes("text/tag-name")) return;
   event.preventDefault();
@@ -26,7 +32,8 @@ function tagDrop(event) {
   event.preventDefault();
   tagDropActive.value = false;
   const name = event.dataTransfer.getData("text/tag-name");
-  store.bindTagToActiveProject(name);
+  const tag = findAvailableTag(name);
+  if (tag) store.bindTagToActiveProject(tag.name);
 }
 
 function activeTagDragStart(event, tagName) {
@@ -53,7 +60,9 @@ function activeTagDragEnd(event) {
 }
 
 function selectTagFromLibrary(tag) {
-  store.bindTagToActiveProject(tag.name);
+  const availableTag = findAvailableTag(tag?.name);
+  if (!availableTag) return;
+  store.bindTagToActiveProject(availableTag.name);
   tagLibraryOpen.value = false;
 }
 </script>

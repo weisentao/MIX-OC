@@ -3362,14 +3362,6 @@ body {
   overflow: visible;
 }
 
-.contacts-dismiss-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  border: 0;
-  background: transparent;
-}
-
 .contacts-directory {
   position: relative;
   z-index: 1;
@@ -6909,10 +6901,6 @@ body {
 .contacts-directory-shell.is-launcher-source .el-dialog__body {
   width: min(980px, calc((100vw / var(--scale-factor)) - 72px)) !important;
   height: min(660px, calc((100vh / var(--scale-factor)) - 72px)) !important;
-  pointer-events: auto;
-}
-
-.contacts-directory-shell.is-launcher-source .contacts-dismiss-layer {
   pointer-events: auto;
 }
 
@@ -11010,5 +10998,97 @@ body {
   .modal-actions button {
     flex: 1 1 120px;
   }
+}
+
+/* Final layout QA: keep project controls compact and vertically centered. */
+.project-inline-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  align-self: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 2px 4px !important;
+}
+
+.project-inline-actions button {
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+.project-server-link {
+  align-self: center !important;
+}
+
+.schedule-project-icon-tray,
+.schedule-project-members {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+}
+
+.schedule-project-icon-tray button,
+.schedule-project-members button {
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 26px !important;
+  width: 26px !important;
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+.schedule-project-icon-tray svg,
+.schedule-project-members svg {
+  display: block !important;
+  margin: 0 !important;
+}
+
+/* Final home/header launcher metrics: home must match flow and schedule entry size. */
+.ai-home-top,
+.work-header .header-top-tools,
+.schedule-hero-header .schedule-hero-actions .header-top-tools {
+  width: auto !important;
+  min-width: 88px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 4px 8px !important;
+  gap: 8px !important;
+  border-radius: 12px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+.ai-home-top .ai-grid-menu,
+.work-header .header-top-tools .grid-menu-btn,
+.schedule-hero-header .schedule-hero-actions .header-top-tools .grid-menu-btn {
+  width: 32px !important;
+  height: 32px !important;
+  grid-template-columns: repeat(3, 3px) !important;
+  grid-auto-rows: 3px !important;
+  gap: 5px !important;
+}
+
+.ai-home-top .ai-grid-menu i,
+.work-header .header-top-tools .grid-menu-btn i,
+.schedule-hero-header .schedule-hero-actions .header-top-tools .grid-menu-btn i {
+  width: 3px !important;
+  height: 3px !important;
+}
+
+.ai-home-top .ai-home-avatar,
+.work-header .header-top-tools .user-avatar,
+.schedule-hero-header .schedule-hero-actions .header-top-tools .user-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 16px !important;
 }
 

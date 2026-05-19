@@ -5,6 +5,7 @@ import { createNotification, makeNotificationUid } from "../notifications/notifi
 import { hrTableStatements } from "./hr.schema.js";
 import { env } from "../../config/env.js";
 import { readStoredAiKeyConfigSync, resolveHrDeepSeekApiKeyFromConfig } from "../../config/aiKeys.js";
+import { resolveDepartmentFilterValues, resolveDepartmentMeta, findDepartmentTaxonomyByKey } from "../../utils/department-taxonomy.js";
 
 const MYSQL_UNAVAILABLE_MESSAGE = "MySQL unavailable for HR API";
 const HR_AI_KEY_NOT_CONFIGURED_CODE = "HR_AI_KEY_NOT_CONFIGURED";
@@ -99,9 +100,9 @@ function cleanSchedulePatchDate(value, fallback = null) {
   if (value === undefined) return fallback;
   const clean = cleanDate(value, fallback);
   if (clean === null) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) badRequest("Invalid date");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) badRequest("日期格式不合法");
   const date = new Date(`${clean}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== clean) badRequest("Invalid date");
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== clean) badRequest("日期格式不合法");
   return clean;
 }
 
@@ -347,6 +348,9 @@ function mapEmployee(row = {}) {
   const skills = parseJson(row.skills_json, profilePayload.skills || []);
   const departmentId = row.profile_department_uid || profilePayload.departmentId || "";
   const departmentName = row.profile_department_name || row.department || "";
+  const departmentMeta = resolveDepartmentMeta(departmentName);
+  const canonicalRoot = departmentMeta.departmentKey ? findDepartmentTaxonomyByKey(departmentMeta.departmentKey) : null;
+  const departmentLabel = canonicalRoot?.label || departmentMeta.displayDepartment || departmentName;
   return {
     id: row.user_uid || String(row.row_id || row.id || ""),
     employeeId: row.user_uid || String(row.row_id || row.id || ""),
@@ -361,6 +365,12 @@ function mapEmployee(row = {}) {
     departmentId,
     department: departmentName,
     departmentName,
+    departmentKey: departmentMeta.departmentKey || "",
+    departmentAliasKey: departmentMeta.childDepartmentKey || "",
+    displayDepartment: departmentMeta.displayDepartment || departmentName,
+    departmentLabel,
+    canonicalDepartment: departmentLabel,
+    departmentPath: departmentMeta.departmentPath || departmentName,
     departmentEn: row.department_en || "",
     positionId: row.position_uid || "",
     job: row.job || "",
@@ -380,16 +390,27 @@ function mapEmployee(row = {}) {
 }
 
 function mapDepartment(row = {}) {
+  const departmentName = row.name || "";
+  const departmentMeta = resolveDepartmentMeta(departmentName);
+  const canonicalRoot = departmentMeta.departmentKey ? findDepartmentTaxonomyByKey(departmentMeta.departmentKey) : null;
+  const displayDepartment = departmentMeta.displayDepartment || departmentName;
+  const departmentLabel = canonicalRoot?.label || displayDepartment;
   return {
     id: row.department_uid || String(row.id || ""),
     departmentId: row.department_uid || String(row.id || ""),
-    name: row.name || "",
-    label: row.name || "",
+    name: departmentName,
+    label: departmentLabel,
+    departmentKey: departmentMeta.departmentKey || "",
+    departmentAliasKey: departmentMeta.childDepartmentKey || "",
+    displayDepartment,
+    canonicalDepartment: departmentLabel,
+    departmentPath: departmentMeta.departmentPath || departmentName,
     nameEn: row.name_en || "",
     parentDepartmentId: row.parent_department_uid || "",
     managerId: row.manager_user_uid || "",
     status: row.status || "active",
     sortOrder: Number(row.sort_order || 0),
+    taxonomyOrder: departmentMeta.departmentOrder,
     memberCount: Number(row.member_count || 0),
     positionCount: Number(row.position_count || 0),
     payload: parseJson(row.payload_json, {})
@@ -549,7 +570,7 @@ async function normalizeEmployeePayload(payload = {}) {
     departmentUid: department?.department_uid || (departmentInput && departmentInput !== payload.department ? departmentInput : ""),
     departmentName: department?.name || cleanString(payload.departmentName || payload.department),
     departmentEn: cleanString(payload.departmentEn || payload.department_en || payload.departmentName || payload.department),
-    job: position?.title || cleanString(payload.job || payload.roleTitle || payload.positionTitle, "Member"),
+    job: position?.title || cleanString(payload.job || payload.roleTitle || payload.positionTitle, "成员"),
     positionUid: position?.position_uid || cleanString(payload.positionId || payload.positionUid),
     employeeNo: cleanString(payload.employeeNo || payload.employee_no),
     directManagerUid: cleanString(payload.managerId || payload.directManagerUid || payload.direct_manager_uid),
@@ -577,8 +598,10 @@ export async function listEmployees(query = {}) {
     params.push(status, status);
   }
   if (departmentId) {
-    where.push("(u.department = ? OR ep.department_uid = ? OR ep.department_name = ?)");
-    params.push(departmentId, departmentId, departmentId);
+    const aliases = resolveDepartmentFilterValues(departmentId);
+    const placeholders = aliases.map(() => "?").join(", ");
+    where.push(`(u.department IN (${placeholders}) OR ep.department_uid = ? OR ep.department_name IN (${placeholders}))`);
+    params.push(...aliases, departmentId, ...aliases);
   }
 
   const [rows] = await mysqlPool.execute(
@@ -817,7 +840,41 @@ export async function listDepartments(query = {}) {
     `,
     includeLimitOffset(params, limit, offset)
   );
-  return rows.map(mapDepartment);
+  const mapped = rows.map(mapDepartment);
+  const pickedByRoot = new Map();
+  const uncategorized = [];
+
+  for (const item of mapped) {
+    if (!item.departmentKey) {
+      uncategorized.push(item);
+      continue;
+    }
+    const existing = pickedByRoot.get(item.departmentKey);
+    if (!existing) {
+      pickedByRoot.set(item.departmentKey, item);
+      continue;
+    }
+    const existingIsRootName = String(existing.name || "").trim() === String(existing.displayDepartment || "").trim();
+    const currentIsRootName = String(item.name || "").trim() === String(item.displayDepartment || "").trim();
+    if (!existingIsRootName && currentIsRootName) {
+      pickedByRoot.set(item.departmentKey, item);
+      continue;
+    }
+    if (Number(item.sortOrder || Number.MAX_SAFE_INTEGER) < Number(existing.sortOrder || Number.MAX_SAFE_INTEGER)) {
+      pickedByRoot.set(item.departmentKey, item);
+    }
+  }
+
+  const canonical = [...pickedByRoot.values()].sort(
+    (a, b) =>
+      Number(a.taxonomyOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.taxonomyOrder ?? Number.MAX_SAFE_INTEGER) ||
+      Number(a.sortOrder || 0) - Number(b.sortOrder || 0)
+  );
+  const rest = uncategorized.sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+  return [...canonical, ...rest].map((item) => {
+    const { taxonomyOrder, ...data } = item;
+    return data;
+  });
 }
 
 export async function getDepartment(departmentId) {
@@ -2138,7 +2195,11 @@ function buildResourcePermissions(auth = {}, query = {}) {
 function mapResourcePerson(row = {}) {
   const skills = parseJson(row.skills_json, []);
   const load = Math.min(130, Math.round(Number(row.scheduled_days || 0) * 20));
-  const departmentId = row.profile_department_uid || row.department || "";
+  const departmentName = row.profile_department_name || row.department || "";
+  const departmentMeta = resolveDepartmentMeta(departmentName);
+  const canonicalRoot = departmentMeta.departmentKey ? findDepartmentTaxonomyByKey(departmentMeta.departmentKey) : null;
+  const departmentLabel = canonicalRoot?.label || departmentMeta.displayDepartment || departmentName;
+  const departmentId = row.profile_department_uid || departmentName || "";
   return {
     id: row.user_uid,
     userId: row.user_uid,
@@ -2147,13 +2208,19 @@ function mapResourcePerson(row = {}) {
     avatar: String(row.name || row.username || "P").slice(0, 1),
     departmentId,
     department: row.department || "",
-    departmentName: row.profile_department_name || row.department || "",
-    roleTitle: row.job || "Member",
-    job: row.job || "Member",
+    departmentName: departmentName,
+    departmentKey: departmentMeta.departmentKey || "",
+    departmentAliasKey: departmentMeta.childDepartmentKey || "",
+    displayDepartment: departmentMeta.displayDepartment || departmentName,
+    departmentLabel,
+    canonicalDepartment: departmentLabel,
+    departmentPath: departmentMeta.departmentPath || departmentName,
+    roleTitle: row.job || "成员",
+    job: row.job || "成员",
     load,
     skills: Array.isArray(skills) ? skills : [],
     tone: load >= 100 ? "red" : load >= 85 ? "orange" : "green",
-    recommendation: load >= 100 ? "Overloaded, consider reassignment." : load >= 85 ? "Available for short tasks; review conflicts." : "Available for new tasks."
+    recommendation: load >= 100 ? "当前已过载，建议改派。" : load >= 85 ? "可承接短期任务，建议先检查冲突。" : "可承接新任务。"
   };
 }
 
@@ -2174,7 +2241,7 @@ function mapResourceWorkItem(row = {}) {
     assigneeId: ownerUserId,
     ownerUserId,
     title: row.title || "",
-    project: row.project_name || "Project",
+    project: row.project_name || "项目",
     projectId: row.project_uid || "",
     assigneeName,
     owner: row.owner_text || assigneeName,
@@ -2261,7 +2328,7 @@ function buildAvailability(people = [], workItems = [], range = {}) {
       personId: person.id,
       startDate: toDateSlash(range.endDate || DEFAULT_RANGE.endDate),
       endDate: toDateSlash(range.endDate || DEFAULT_RANGE.endDate),
-      label: Number(person.load || 0) < 85 ? "Available" : "Short task available"
+      label: Number(person.load || 0) < 85 ? "可分配" : "可承接短期任务"
     }));
 }
 
@@ -2307,10 +2374,10 @@ function buildCandidateList(people = [], payload = {}) {
         loadBefore: Number(person.load || 0),
         loadAfter,
         conflictCount,
-        reason: skillScore > 0 ? "Skill match and available workload" : "Available workload",
+        reason: skillScore > 0 ? "技能匹配且当前工作负载可承接" : "当前工作负载可承接",
         reasons: [
-          skillScore > 0 ? `Matched ${skillScore} skill tags` : "Candidate is available",
-          loadAfter >= 100 ? "Overload risk exists" : "Schedule risk is low"
+          skillScore > 0 ? `匹配到 ${skillScore} 个技能标签` : "候选人当前可分配",
+          loadAfter >= 100 ? "存在过载风险" : "排期风险较低"
         ],
         conflictTasks: [],
         tone: conflictCount ? "orange" : "green"
@@ -2338,7 +2405,7 @@ function normalizeAssignmentCandidate(candidate = {}) {
     loadBefore,
     loadAfter,
     conflictCount: cleanNumber(candidate.conflictCount ?? candidate.conflict_count ?? candidate.conflicts, 0),
-    reason: cleanString(candidate.reason || candidate.recommendation || candidate.summary, "Candidate provided by assignment request"),
+    reason: cleanString(candidate.reason || candidate.recommendation || candidate.summary, "来自指派请求的候选人"),
     reasons: cleanArray(candidate.reasons).map((item) => cleanString(item)).filter(Boolean),
     conflictTasks: cleanArray(candidate.conflictTasks || candidate.conflict_tasks).map((item) => cleanString(item)).filter(Boolean),
     skills: cleanArray(candidate.skills),
@@ -2451,8 +2518,10 @@ async function getResourceRows(query = {}, auth = {}) {
     params.push(scope.projectIds[0]);
   } else if (scope.departmentIds[0]) {
     const dept = scope.departmentIds[0];
-    where.push("(u.department = ? OR ep.department_uid = ? OR ep.department_name = ?)");
-    params.push(dept, dept, dept);
+    const aliases = resolveDepartmentFilterValues(dept);
+    const placeholders = aliases.map(() => "?").join(", ");
+    where.push(`(u.department IN (${placeholders}) OR ep.department_uid = ? OR ep.department_name IN (${placeholders}))`);
+    params.push(...aliases, dept, ...aliases);
   }
   if (keyword) {
     where.push("(u.name LIKE ? OR u.username LIKE ? OR u.department LIKE ? OR u.job LIKE ?)");
@@ -2643,18 +2712,18 @@ function buildAssignmentActions(candidates = [], risk = {}) {
     actions.push({
       type: "selectCandidate",
       candidateId: primary.personId,
-      label: `Assign to ${primary.name}`
+      label: `分配给 ${primary.name}`
     });
   }
   if (risk.level !== "low") {
     actions.push({
       type: "reviewSchedule",
-      label: "Review workload before assignment"
+      label: "分配前先检查负载"
     });
   }
   actions.push({
     type: "createPreview",
-    label: "Create assignment preview"
+    label: "创建指派预览"
   });
   return actions;
 }
@@ -2926,7 +2995,7 @@ function resolveHrDeepSeekApiKey() {
 }
 
 function buildHrAiKeyNotConfiguredError() {
-  const error = new Error("DeepSeek HR API key is not configured");
+  const error = new Error("未配置 DeepSeek HR API Key");
   error.statusCode = 503;
   error.code = HR_AI_KEY_NOT_CONFIGURED_CODE;
   return error;
@@ -2953,8 +3022,8 @@ export function getAssignmentAdviceAvailability() {
     apiKeyConfigured: configured,
     hrApiKeyConfigured: configured,
     message: configured
-      ? "Backend AI proxy is available for assignment-advice."
-      : "DeepSeek HR API key is not configured."
+      ? "后端 AI 代理可用于人力指派建议。"
+      : "未配置 DeepSeek HR API Key。"
   };
 }
 
@@ -3000,13 +3069,13 @@ async function callHrDeepSeek(messages = [], model = HR_DEFAULT_MODEL) {
     }
 
     if (!response.ok) {
-      const error = new Error("HR assignment advice service is temporarily unavailable");
+      const error = new Error("HR 指派建议服务暂时不可用");
       error.statusCode = response.status >= 500 ? 503 : 502;
       throw error;
     }
     const answer = cleanString(data?.choices?.[0]?.message?.content);
     if (!answer) {
-      const error = new Error("HR assignment advice service is temporarily unavailable");
+      const error = new Error("HR 指派建议服务暂时不可用");
       error.statusCode = 503;
       throw error;
     }
@@ -3021,7 +3090,7 @@ async function callHrDeepSeek(messages = [], model = HR_DEFAULT_MODEL) {
     };
   } catch (error) {
     if (error?.statusCode) throw error;
-    const serviceError = new Error("HR assignment advice service is temporarily unavailable");
+    const serviceError = new Error("HR 指派建议服务暂时不可用");
     serviceError.statusCode = 503;
     throw serviceError;
   } finally {
@@ -3046,8 +3115,8 @@ export async function getAssignmentAdvice(payload = {}, auth = {}) {
   let aiError = null;
   let localFallbackReason = fallback ? "NO_ASSIGNMENT_CANDIDATES" : "";
   let advice = fallback
-    ? "No eligible candidates are available in the current scope. Adjust the scope or workload before confirming."
-    : `Recommend assigning to ${recommendedCandidate?.name || recommendedCandidateId} based on current workload and schedule risk.`;
+    ? "当前范围内没有可分配候选人，请先调整范围或工作负载后再确认。"
+    : `建议分配给 ${recommendedCandidate?.name || recommendedCandidateId}，依据是当前工作负载与排期风险。`;
   let usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
   try {
@@ -3055,7 +3124,7 @@ export async function getAssignmentAdvice(payload = {}, auth = {}) {
       [
         {
           role: "system",
-          content: "You are HR assignment copilot. Provide concise assignment advice from candidate and risk snapshot."
+          content: "你是 HR 指派助手。请基于候选人与风险快照给出简洁指派建议。"
         },
         {
           role: "user",
@@ -3086,7 +3155,7 @@ export async function getAssignmentAdvice(payload = {}, auth = {}) {
     aiError = {
       code: error?.code || (isHrAiConfigurationError(error) ? HR_AI_KEY_NOT_CONFIGURED_CODE : "HR_AI_UNAVAILABLE"),
       statusCode: error?.statusCode || 503,
-      message: error?.message || "HR assignment advice service is temporarily unavailable"
+      message: error?.message || "HR 指派建议服务暂时不可用"
     };
     localFallbackReason = aiError.code;
     if (!isHrAiConfigurationError(error)) {
@@ -3094,8 +3163,8 @@ export async function getAssignmentAdvice(payload = {}, auth = {}) {
     }
   }
   const syncNotes = [
-    "Assignment confirmation syncs HR preview, schedule item, and task owner.",
-    fallback ? "No candidates available; adjust scope before confirming." : "Preview before confirming to keep candidates and schedule in sync."
+    "确认指派会同步 HR 预览、排期项与任务负责人。",
+    fallback ? "暂无可选候选人，请先调整范围后再确认。" : "建议先预览再确认，保证候选人与排期状态一致。"
   ];
   return {
     recommendedCandidate,
@@ -3141,7 +3210,7 @@ function normalizeSchedulePatchPayload(current = {}, payload = {}) {
   const endInput = firstDefined(payload, ["endDate", "end_date"]);
   const startDate = cleanSchedulePatchDate(startInput, rowDateDash(current.start_date));
   const endDate = cleanSchedulePatchDate(endInput, rowDateDash(current.end_date || current.start_date));
-  if (startDate && endDate && endDate < startDate) throw badRequest("endDate cannot be earlier than startDate");
+  if (startDate && endDate && endDate < startDate) throw badRequest("结束日期不能早于开始日期");
 
   const ownerUserInput = firstDefined(payload, ["ownerUserId", "ownerUserUid", "owner_user_uid", "assigneeId", "assignee_id", "personId", "person_id", "userId", "user_id"]);
   const ownerTextInput = firstDefined(payload, ["owner", "ownerText", "owner_text", "assigneeName", "assignee_name"]);
@@ -3263,8 +3332,8 @@ async function resolveAssignmentProject(payload = {}, auth = {}, executor = mysq
     if (project) return project;
   }
 
-  if (projectIds.length || projectName) notFound("Project not found");
-  badRequest("projectId or projectUid is required");
+  if (projectIds.length || projectName) notFound("项目不存在");
+  badRequest("projectId 或 projectUid 为必填项");
 }
 
 async function resolveAssignmentProjectContext(payload = {}, auth = {}, executor = mysqlPool) {
@@ -3292,7 +3361,7 @@ async function ensureAssignmentSchedulePlan(project = {}, payload = {}, auth = {
   if (rows[0]) return rows[0];
 
   const actor = actorId(auth);
-  const title = cleanString(payload.planTitle || payload.plan_title || `${project.name || "Project"} Schedule`, "Project Schedule");
+  const title = cleanString(payload.planTitle || payload.plan_title || `${project.name || "项目"}排期`, "项目排期");
   const startDate = cleanDate(payload.startDate || payload.start_date, cleanDate(project.start_date, null));
   const endDate = cleanDate(payload.endDate || payload.end_date, cleanDate(project.end_date, null));
 
@@ -3320,7 +3389,7 @@ async function ensureAssignmentSchedulePlan(project = {}, payload = {}, auth = {
     `,
     [project.project_uid]
   );
-  if (!createdRows[0]) conflict("Active schedule plan not found after creation");
+  if (!createdRows[0]) conflict("创建后未找到可用排期计划");
   return createdRows[0];
 }
 
@@ -3328,13 +3397,13 @@ function normalizeAssignmentCreatePayload(payload = {}, assignment = {}, project
   const normalizedPayload = payload?.__assignmentConfirmNormalized ? payload : normalizeAssignmentConfirmPayload(payload);
   const assigneeId = cleanString(normalizedPayload.assigneeId || normalizedPayload.personId || normalizedPayload.userId || assignment.assigneeId || assignment.personId);
   const assigneeName = cleanString(normalizedPayload.assigneeName || normalizedPayload.assignee_name || assignment.assigneeName, assigneeId);
-  const title = cleanString(normalizedPayload.title || normalizedPayload.taskTitle || normalizedPayload.task_title || assignment.title, "New task");
+  const title = cleanString(normalizedPayload.title || normalizedPayload.taskTitle || normalizedPayload.task_title || assignment.title, "新任务");
   const startDate = cleanDate(normalizedPayload.startDate || normalizedPayload.start_date || assignment.startDate, DEFAULT_RANGE.startDate);
   const endDate = cleanDate(
     normalizedPayload.endDate || normalizedPayload.end_date || assignment.endDate,
     normalizedPayload.startDate || assignment.startDate || DEFAULT_RANGE.endDate
   );
-  if (startDate && endDate && endDate < startDate) throw badRequest("endDate cannot be earlier than startDate");
+  if (startDate && endDate && endDate < startDate) throw badRequest("结束日期不能早于开始日期");
 
   return {
     title,
@@ -3579,7 +3648,7 @@ async function updateSchedulePatchItemsByTaskUid(taskUid, normalized, actor, exe
 
 export async function updateWorkspaceWorkItemSchedule(workItemId, payload = {}, auth = {}) {
   const cleanWorkItemId = cleanString(workItemId || payload.workItemId || payload.itemId || payload.taskId);
-  if (!cleanWorkItemId) throw badRequest("workItemId is required");
+  if (!cleanWorkItemId) throw badRequest("workItemId 为必填项");
 
   const dateProbe = {
     start_date: cleanDate(payload.startDate || payload.start_date, null),
@@ -3620,7 +3689,7 @@ export async function updateWorkspaceWorkItemSchedule(workItemId, payload = {}, 
     } else {
       source = "task";
       currentTask = await findSchedulePatchTaskById(taskLookupId, connection);
-      if (!currentTask) throw notFound("Work item not found");
+      if (!currentTask) throw notFound("未找到工作项");
       normalized = normalizeSchedulePatchPayload(currentTask, payload);
       taskUpdated = (await updateSchedulePatchTask(currentTask.task_uid, normalized, actor, connection)) > 0;
       linkedScheduleItemsUpdated = await updateSchedulePatchItemsByTaskUid(currentTask.task_uid, normalized, actor, connection);
@@ -3684,7 +3753,7 @@ export async function previewAssignment(payload = {}, auth = {}) {
     candidate: selected,
     candidates,
     conflicts: allowed && selected?.conflictCount ? selected.conflictTasks : [],
-    title: cleanString(previewPayload.title || previewPayload.taskTitle, "New task"),
+    title: cleanString(previewPayload.title || previewPayload.taskTitle, "新任务"),
     startDate: toDateSlash(cleanDate(previewPayload.startDate, DEFAULT_RANGE.startDate)),
     endDate: toDateSlash(cleanDate(previewPayload.endDate, previewPayload.startDate || DEFAULT_RANGE.endDate))
   };
@@ -3726,11 +3795,11 @@ export async function previewAssignment(payload = {}, auth = {}) {
 async function insertAssignmentRecord(payload = {}, auth = {}, forced = false) {
   const normalizedPayload = payload?.__assignmentConfirmNormalized ? payload : normalizeAssignmentConfirmPayload(payload);
   const assigneeId = cleanString(normalizedPayload.assigneeId || normalizedPayload.personId || normalizedPayload.userId);
-  if (!assigneeId) throw badRequest("assigneeId is required");
+  if (!assigneeId) throw badRequest("assigneeId 为必填项");
   const workItemId = assignmentWorkItemId(normalizedPayload);
   const scheduleItemId = cleanString(normalizedPayload.scheduleItemId || normalizedPayload.schedule_item_id || normalizedPayload.itemId || normalizedPayload.item_id);
   const taskUid = cleanString(normalizedPayload.taskUid || normalizedPayload.task_uid || normalizedPayload.taskId || normalizedPayload.task_id);
-  const title = cleanString(normalizedPayload.title || normalizedPayload.taskTitle, "New task");
+  const title = cleanString(normalizedPayload.title || normalizedPayload.taskTitle, "新任务");
   const previewUid = cleanString(normalizedPayload.previewId) || makeUid("preview");
   const startDate = cleanDate(normalizedPayload.startDate, DEFAULT_RANGE.startDate);
   const endDate = cleanDate(normalizedPayload.endDate, normalizedPayload.startDate || DEFAULT_RANGE.endDate);
@@ -3982,11 +4051,11 @@ function assertAssignmentSyncLink(payload = {}, assignment = {}) {
 
 export async function confirmAssignment(payload = {}, auth = {}, options = {}) {
   const requestPayload = normalizeAssignmentConfirmPayload(payload);
-  if (options.forced && !assignmentReason(requestPayload)) throw badRequest("forceReason is required");
+  if (options.forced && !assignmentReason(requestPayload)) throw badRequest("强制指派时必须填写 forceReason");
   await ensureHrSchemaReady();
   assertWritable(auth);
   if (options.forced && !hasPermission(auth, "resource.forceassign")) {
-    throw forbidden("No permission to force assign");
+    throw forbidden("无权执行强制指派");
   }
   const previewContext = await findAssignmentPreviewContext(requestPayload.previewId || requestPayload.id);
   let confirmPayload = normalizeAssignmentConfirmPayload(mergeDefined(previewContext, requestPayload));
@@ -3994,7 +4063,7 @@ export async function confirmAssignment(payload = {}, auth = {}, options = {}) {
   const candidates = buildCandidateList(snapshot.people, confirmPayload);
   const { requestedAssigneeId, requestedCandidateMissing } = selectAssignmentCandidate(candidates, confirmPayload);
   if (requestedAssigneeId && requestedCandidateMissing) {
-    throw forbidden("Assignee is not available in assignment candidates");
+    throw forbidden("指派对象不在可选候选人列表中");
   }
   if (!assignmentWorkItemId(confirmPayload)) {
     confirmPayload = mergeDefined(confirmPayload, await resolveAssignmentProjectContext(confirmPayload, auth));

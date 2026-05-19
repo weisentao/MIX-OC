@@ -29,8 +29,14 @@ const emailSaving = ref(false);
 const editableEmail = computed(() => (user.value?.email || "").trim());
 
 const user = computed(() => store.getUser(props.userId) || store.currentUser);
-const canEdit = computed(() => !props.readonly && (store.isAdmin || user.value?.id === store.currentUser?.id));
-const emailText = computed(() => editableEmail.value || "点击填写邮箱");
+const isOwnProfile = computed(() => Boolean(user.value?.id && user.value.id === store.currentUser?.id));
+const canEdit = computed(() => !props.readonly && (store.isAdmin || isOwnProfile.value));
+const showAccountActions = computed(() => isOwnProfile.value);
+const canEditEmail = computed(() => canEdit.value && isOwnProfile.value);
+const emailText = computed(() => {
+  if (editableEmail.value) return editableEmail.value;
+  return canEditEmail.value ? "点击填写邮箱" : "暂未填写邮箱";
+});
 const departmentTitle = computed(() => user.value?.department || "三维视觉部");
 const departmentEnParts = computed(() => {
   const text = user.value?.department || "三维视觉部";
@@ -51,6 +57,7 @@ function close() {
 
 async function edit(field, label, maxLength) {
   if (!canEdit.value) return;
+  if (field === "email" && !canEditEmail.value) return;
   const next = await askText({
     title: `修改${label}`,
     message: `请输入${label}（最多 ${maxLength} 字）`,
@@ -71,7 +78,7 @@ async function edit(field, label, maxLength) {
 }
 
 async function editEmail() {
-  if (!canEdit.value || emailSaving.value) return;
+  if (!canEditEmail.value || emailSaving.value) return;
   emailSaving.value = true;
   try {
     await edit("email", "邮箱", 128);
@@ -126,6 +133,7 @@ function readImage(event, { field, label, pngOnly = false, maxSize, maxWidth, ma
 }
 
 function toggleEmailPanel() {
+  if (!canEditEmail.value) return;
   emailPanelOpen.value = !emailPanelOpen.value;
 }
 
@@ -136,6 +144,7 @@ function openMailProvider(url) {
 }
 
 function profileAction(action) {
+  if (!showAccountActions.value) return;
   if (action === "change-password") {
     emit("change-password");
     return;
@@ -184,25 +193,25 @@ function profileAction(action) {
 
           <button class="profile-mbti editable-text" :disabled="!canEdit" type="button" @click="edit('mbti', 'MBTI', 4)">
             {{ user.mbti || "ENTP" }}
-            <i>✓</i>
+            <i v-if="canEdit">✓</i>
           </button>
           <button class="profile-phone editable-text" :disabled="!canEdit" type="button" @click="edit('phone', '手机号', 32)">
             {{ user.phone || "18556654263" }}
-            <i>✓</i>
+            <i v-if="canEdit">✓</i>
           </button>
           <button class="profile-mood editable-text" :disabled="!canEdit" type="button" @click="edit('mood', '心情签名', 255)">
             {{ user.mood || "心情不好就喜欢听音乐和吃东西" }}
-            <i>✓</i>
+            <i v-if="canEdit">✓</i>
           </button>
           <button class="profile-signature editable-text" :disabled="!canEdit" type="button" @click="edit('signature', '个性签名', 255)">
             {{ user.signature || "其实我不想加班，也不想上班，想过年" }}
-            <i>✓</i>
+            <i v-if="canEdit">✓</i>
           </button>
         </div>
 
-        <button class="profile-character-stage" :disabled="!canEdit" type="button" title="上传 PNG 人物图" @click="pickFile(characterInput)">
+        <button class="profile-character-stage" :disabled="!canEdit" type="button" :title="canEdit ? '上传 PNG 人物图' : undefined" @click="pickFile(characterInput)">
           <img :src="user.characterImage || defaultCharacterImage" alt="" />
-          <b>+</b>
+          <b v-if="canEdit">+</b>
         </button>
 
         <button class="profile-hand-sign" :disabled="!canEdit" type="button" @click="pickFile(signatureInput)">
@@ -211,10 +220,10 @@ function profileAction(action) {
             <path d="M22 128C80 92 116 80 143 92c33 15-5 91-38 84-29-6-18-70 30-95 67-35 123-8 154 30 22 27 16 68-16 73-27 4-42-30-19-57 39-46 118-62 172-47 26 8 35 22 20 39-18 21-68 20-75 4-6-15 27-23 70-28 72-9 126-27 158-57" />
             <path d="M72 167c91-9 196-35 292-70 70-25 142-48 226-64" />
           </svg>
-          <i>✓</i>
+          <i v-if="canEdit">✓</i>
         </button>
 
-        <button class="profile-avatar-badge" :disabled="!canEdit" type="button" title="上传头像" @click="pickFile(avatarInput)">
+        <button class="profile-avatar-badge" :disabled="!canEdit" type="button" :title="canEdit ? '上传头像' : undefined" @click="pickFile(avatarInput)">
           <img v-if="user.avatarImage" :src="user.avatarImage" alt="" />
           <svg v-else class="profile-avatar-default" viewBox="0 0 80 80" aria-hidden="true">
             <circle cx="40" cy="40" r="39" fill="#1d79a8" stroke="#222" stroke-width="1.5" />
@@ -225,21 +234,22 @@ function profileAction(action) {
             <path d="M23 35c13-4 28-4 43 0" stroke="#111" stroke-width="4" />
             <circle cx="40" cy="38" r="8" fill="#fff" />
           </svg>
-          <i>+</i>
+          <i v-if="canEdit">+</i>
         </button>
 
         <div class="profile-top-actions">
-          <button type="button" @click="profileAction('change-password')">修改密码</button>
-          <button type="button" @click="profileAction('logout')">退出登录</button>
+          <button v-if="showAccountActions" type="button" @click="profileAction('change-password')">修改密码</button>
+          <button v-if="showAccountActions" type="button" @click="profileAction('logout')">退出登录</button>
           <strong>{{ user.name || "当前用户" }}</strong>
         </div>
 
         <div class="profile-email">
           <span>邮箱：</span>
-          <button type="button" :disabled="!canEdit || emailSaving" @click="editEmail">{{ emailText }}</button>
-          <button type="button" title="选择邮箱入口" @click="toggleEmailPanel">→</button>
+          <button v-if="canEditEmail" type="button" :disabled="emailSaving" @click="editEmail">{{ emailText }}</button>
+          <strong v-else class="profile-email-readonly">{{ emailText }}</strong>
+          <button v-if="canEditEmail" type="button" title="选择邮箱入口" @click="toggleEmailPanel">→</button>
         </div>
-        <div v-if="emailPanelOpen" class="profile-email-panel">
+        <div v-if="canEditEmail && emailPanelOpen" class="profile-email-panel">
           <button v-for="provider in emailProviders" :key="provider.label" type="button" @click="openMailProvider(provider.url)">
             {{ provider.label }}
           </button>

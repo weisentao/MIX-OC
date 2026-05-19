@@ -202,7 +202,7 @@ export const realUsersSeed = [
   {
     "id": "u-admin",
     "username": "admin",
-    "name": "admin",
+    "name": "超级管理员",
     "role": "admin",
     "avatar": "A",
     "department": "项目管理部",

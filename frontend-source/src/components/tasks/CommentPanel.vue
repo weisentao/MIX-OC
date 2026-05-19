@@ -20,7 +20,20 @@ const emojiGroups = {
   常用: ["😀", "😂", "😊", "😍", "🥰", "😎", "😭", "😅", "😤", "🤔", "👍", "🙏", "👏", "🤝", "👌", "💪", "✅", "⚠️", "📌", "⏰"],
   工作: ["🎯", "💡", "📝", "📎", "📁", "📦", "🔍", "🔧", "📊", "📅", "🚩", "⭐", "🔥", "✨", "💬", "📣", "🧩", "🛠️", "🧠", "🏁"],
   表情: ["😄", "😆", "😉", "😋", "😐", "😮", "😴", "😵", "🥲", "😇", "😈", "🤯", "🥳", "😬", "🙃", "😌", "😞", "😡", "🤩", "😶"],
-  GIF: ["[GIF:收到]", "[GIF:加油]", "[GIF:OK]", "[GIF:马上改]", "[GIF:辛苦了]", "[GIF:已确认]", "[GIF:在看]", "[GIF:催一下]"]
+  GIF: ["[GIF:收到]", "[GIF:加油]", "[GIF:好的]", "[GIF:马上改]", "[GIF:辛苦了]", "[GIF:已确认]", "[GIF:在看]", "[GIF:催一下]"]
+};
+
+const GIF_TEXT_ALIASES = {
+  收到: "收到",
+  加油: "加油",
+  OK: "好的",
+  ok: "好的",
+  好的: "好的",
+  马上改: "马上改",
+  辛苦了: "辛苦了",
+  已确认: "已确认",
+  在看: "在看",
+  催一下: "催一下"
 };
 
 const activeEmojis = computed(() => emojiGroups[emojiPage.value] || emojiGroups.常用);
@@ -49,6 +62,12 @@ function submit() {
 function insertEmoji(emoji) {
   comment.value += emoji.startsWith("[GIF:") ? `${emoji} ` : emoji;
   pickerOpen.value = false;
+}
+
+function displayEmoji(emoji) {
+  if (!emoji.startsWith("[GIF:")) return emoji;
+  const clean = emoji.replace("[GIF:", "").replace("]", "").trim();
+  return GIF_TEXT_ALIASES[clean] || clean;
 }
 
 function insertMention(user) {
@@ -109,7 +128,7 @@ function isOwnComment(item) {
           <button v-for="(_, name) in emojiGroups" :key="name" type="button" :class="{ active: emojiPage === name }" @click="emojiPage = name">{{ name }}</button>
         </div>
         <div class="emoji-grid">
-          <button v-for="emoji in activeEmojis" :key="emoji" type="button" :class="{ 'is-gif': emoji.startsWith('[GIF:') }" @click="insertEmoji(emoji)">{{ emoji.startsWith("[GIF:") ? emoji.replace("[GIF:", "").replace("]", "") : emoji }}</button>
+          <button v-for="emoji in activeEmojis" :key="emoji" type="button" :class="{ 'is-gif': emoji.startsWith('[GIF:') }" @click="insertEmoji(emoji)">{{ displayEmoji(emoji) }}</button>
         </div>
       </div>
     </form>

@@ -14,8 +14,10 @@ const menuPosition = reactive({ top: 0, left: 0 });
 const departmentOptions = [
   { label: "全部", value: "全部" },
   { label: "项目管理", value: "project" },
+  { label: "AIGC", value: "aigc" },
   { label: "美术设计", value: "design" },
-  { label: "三维动态设计部", value: "threeD" },
+  { label: "三维动态", value: "threeD" },
+  { label: "动效设计", value: "motion" },
   { label: "视效包装", value: "post" }
 ];
 const selectedItem = computed(() => {
@@ -182,8 +184,12 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.schedule-department-pills button:not(.is-active)[data-department="三维动态设计部"] {
+.schedule-department-pills button:not(.is-active)[data-department="三维动态"] {
   border-color: rgba(183, 107, 214, 0.4);
+}
+
+.schedule-department-pills button:not(.is-active)[data-department="动效设计"] {
+  border-color: rgba(234, 106, 160, 0.4);
 }
 
 .schedule-department-pills button:not(.is-active)[data-department="视效包装"] {

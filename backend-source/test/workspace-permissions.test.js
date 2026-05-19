@@ -99,7 +99,7 @@ test("employee cannot create workspace tags before DB mutation", async () => {
   assert.equal(response.status, 403);
   assert.deepEqual(response.body, {
     code: "FORBIDDEN",
-    message: "No permission to write",
+    message: "无权限执行该操作",
     requestId: "req-tag-create"
   });
 });
@@ -116,7 +116,7 @@ test("employee cannot create workspace project groups before DB mutation", async
   assert.equal(response.status, 403);
   assert.deepEqual(response.body, {
     code: "FORBIDDEN",
-    message: "No permission to write",
+    message: "无权限执行该操作",
     requestId: "req-group-create"
   });
 });

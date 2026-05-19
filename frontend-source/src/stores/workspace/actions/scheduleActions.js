@@ -2,6 +2,7 @@ import { scheduleColumns } from "../../../data/seed.js";
 import scheduleApi from "../../../services/scheduleApi.js";
 import { clampDateRange } from "../../../utils/schedule/dateRange.js";
 import { createScheduleRowMovePlan } from "../../../utils/schedule/timelineLayout.js";
+import { normalizeScheduleModuleKey } from "../../../utils/schedule/scheduleColors.js";
 import { buildFallbackSchedule, mergeScheduleWithProjectTasks, normalizeScheduleItem, normalizeScheduleResponse } from "../../../utils/schedule/scheduleNormalize.js";
 import workspaceApi from "../../../services/workspaceApi.js";
 import { backendSyncToast, isAuthApiError, isLoginExpiredApiError } from "../../../services/apiErrors.js";
@@ -10,7 +11,8 @@ import { idsEqual, normalizeTaskModuleKey, nowText } from "../helpers.js";
 
 const BACKEND_SYNC_FAIL_TOAST = "已本地保存，后端同步失败";
 const DELETE_SYNC_FAIL_TOAST = "删除同步失败，已恢复本地排期";
-const SCHEDULE_DEPARTMENT_FILTERS = ["全部", "project", "design", "threeD", "post", "项目管理", "AIGC", "美术设计", "三维动态", "三维动画", "动效设计", "后期合成"];
+const SCHEDULE_DEPARTMENT_FILTERS = ["全部", "project", "aigc", "design", "threeD", "motion", "post", "项目管理", "AIGC", "美术设计", "三维动态", "动效设计", "视效包装"];
+const SCHEDULE_DEPARTMENT_FILTER_LABELS = new Set(["项目管理", "AIGC", "美术设计", "三维动态", "动效设计", "视效包装"]);
 const SCHEDULE_ROW_FILTERS = ["all", "schedule", "task"];
 const SCHEDULE_ZOOM_LEVELS = [18, 22, 28, 36, 48];
 const SCHEDULE_CHAT_DEFAULTS = {
@@ -297,7 +299,7 @@ function scheduleCommentToTaskComment(comment = {}, fallback = {}) {
     ...comment,
     id: comment.id || comment.commentId || fallback.id || `comment-local-${Date.now()}`,
     user: comment.user || comment.authorName || comment.author || fallback.user || "admin",
-    dept: comment.dept || fallback.dept || "Project member",
+    dept: comment.dept || fallback.dept || "项目成员",
     tone: comment.tone || fallback.tone || "pink",
     time: comment.time || comment.createdAt || fallback.time || nowText(),
     text
@@ -378,6 +380,14 @@ function summaryFromItems(items = []) {
 
 function compareDate(a, b) {
   return String(a || "").localeCompare(String(b || ""));
+}
+
+function normalizeScheduleDepartmentFilter(filter) {
+  const text = String(filter || "").trim();
+  if (!text) return "全部";
+  if (text === "全部") return "全部";
+  if (SCHEDULE_DEPARTMENT_FILTER_LABELS.has(text)) return text;
+  return normalizeScheduleModuleKey(text) || text;
 }
 
 function rangeFromScheduleItems(items = [], fallbackStartDate = "", fallbackEndDate = "") {
@@ -665,7 +675,7 @@ function applyScheduleState(store, schedule, source = "api") {
   store.scheduleUi = {
     ...store.scheduleUi,
     view: store.scheduleUi?.view || plan.viewConfig?.defaultView || "timeline",
-    departmentFilter: store.scheduleUi?.departmentFilter || "全部",
+    departmentFilter: normalizeScheduleDepartmentFilter(store.scheduleUi?.departmentFilter || "全部"),
     rowFilter: store.scheduleUi?.rowFilter || "all",
     visibleType: store.scheduleUi?.visibleType || store.scheduleUi?.rowFilter || "all",
     dayWidth: Number(plan.viewConfig?.dayWidth || store.scheduleUi?.dayWidth || 28),
@@ -761,8 +771,9 @@ setScheduleUiView(view) {
   return true;
 },
 setScheduleDepartmentFilter(filter) {
-  if (!SCHEDULE_DEPARTMENT_FILTERS.includes(filter)) return false;
-  this.scheduleUi.departmentFilter = filter;
+  const normalizedFilter = normalizeScheduleDepartmentFilter(filter);
+  if (!SCHEDULE_DEPARTMENT_FILTERS.includes(normalizedFilter)) return false;
+  this.scheduleUi.departmentFilter = normalizedFilter;
   return true;
 },
 setScheduleRowFilter(filter) {

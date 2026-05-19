@@ -31,6 +31,7 @@ data/storage-v1/metadata/**
 .codex-qa/
 .gstack/
 .qa-artifacts/
+backend-deploy-stage-*/
 output/
 tmp/
 tmp*

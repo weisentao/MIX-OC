@@ -9216,7 +9216,9 @@
   left: 0;
   top: 0;
   z-index: 5;
-  display: inline-flex;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   overflow: hidden;
   inline-size: var(--resource-person-column-width, 210px);
   min-inline-size: var(--resource-person-column-width, 210px);
@@ -9224,6 +9226,25 @@
   background: var(--resource-department-band-background, #f8fbff);
   background-clip: padding-box;
   box-shadow: 0 1px 0 var(--resource-line);
+}
+
+.resource-workbench .resource-department-band.is-collapsed {
+  display: flex;
+  inline-size: var(--resource-person-column-width, 210px);
+}
+
+.resource-workbench .resource-department-band > strong {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.resource-workbench .resource-department-band > span:not(.resource-department-caret) {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.resource-workbench .resource-department-caret {
+  flex: 0 0 auto;
 }
 
 .resource-workbench .resource-department-band.is-pink {
@@ -10175,4 +10196,50 @@
   .resource-subtitle {
     white-space: normal;
   }
+}
+
+/* Final resource timeline QA: collapsed department counts stay inside the fixed side band. */
+.resource-workbench .resource-department-band {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  inline-size: var(--resource-person-column-width, 210px);
+  min-inline-size: var(--resource-person-column-width, 210px);
+  max-inline-size: var(--resource-person-column-width, 210px);
+  padding-inline: 12px;
+  background: var(--resource-department-band-background, #f8fbff);
+  background-clip: padding-box;
+  box-shadow: 0 1px 0 var(--resource-line);
+}
+
+.resource-workbench .resource-department-band.is-collapsed {
+  display: flex;
+  inline-size: var(--resource-person-column-width, 210px);
+  min-inline-size: var(--resource-person-column-width, 210px);
+  max-inline-size: var(--resource-person-column-width, 210px);
+}
+
+.resource-workbench .resource-department-band > strong {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-workbench .resource-department-band > span:not(.resource-department-caret) {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-workbench .resource-department-caret {
+  flex: 0 0 auto;
 }

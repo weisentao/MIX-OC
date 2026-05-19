@@ -14,7 +14,7 @@ function toQuery(params = {}) {
 
 function requirePathValue(name, value) {
   const text = String(value ?? "").trim();
-  if (!text) return Promise.reject(new Error(`${name} is required`));
+  if (!text) return Promise.reject(new Error(`${name} 不能为空`));
   return Promise.resolve(encodePath(text));
 }
 

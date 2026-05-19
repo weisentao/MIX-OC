@@ -1,4 +1,4 @@
-﻿import { isSharedTemplateSectionName, nowText, uniqueId } from "../helpers.js";
+import { isSharedTemplateSectionName, nowText, uniqueId } from "../helpers.js";
 import workspaceApi from "../../../services/workspaceApi.js";
 import { backendSyncToast } from "../../../services/apiErrors.js";
 import { claimUnownedTemplateGroups } from "../templateOwnership.js";
@@ -719,4 +719,3 @@ moveTemplate(templateName, targetIndex) {
   this.showToast(`模板已归放到“${target.title}”`);
   return true;
 },};
-

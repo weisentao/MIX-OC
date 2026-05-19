@@ -31,6 +31,7 @@ const formMode = ref("create");
 const formModel = reactive({});
 const formSyncStatus = ref("");
 const formSubmitting = ref(false);
+const tagLibraryOpen = ref(false);
 
 function syncStoredLoginUser() {
   try {
@@ -86,6 +87,11 @@ const scopeLabel = computed(() => "超级管理员·全局管理");
 const lastSync = computed(() => `刚刚同步 ${new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`);
 const formTitle = computed(() => `${formMode.value === "edit" ? "编辑" : "新增"}${activeNav.value?.label || "记录"}`);
 const formSubmitLabel = computed(() => (formMode.value === "edit" ? "保存修改" : "创建记录"));
+const selectedProjectTags = computed(() => (Array.isArray(formModel.tags) ? formModel.tags : []).filter(Boolean));
+const availableProjectTags = computed(() =>
+  (store.tags || []).filter((tag) => tag?.name && !selectedProjectTags.value.includes(tag.name))
+);
+const showProjectTagPicker = computed(() => formOpen.value && activeKey.value === "projects");
 
 watch(activeKey, () => {
   activeFilter.value = "all";
@@ -93,6 +99,7 @@ watch(activeKey, () => {
   selectedRow.value = filteredRows.value[0] || null;
   formOpen.value = false;
   formSyncStatus.value = "";
+  tagLibraryOpen.value = false;
   if (activeKey.value === "notices") loadAdminNotices();
 });
 
@@ -690,8 +697,7 @@ function defaultFormFields(key) {
         ]
       },
       { key: "startDate", label: "开始时间" },
-      { key: "endDate", label: "结束时间" },
-      { key: "tags", label: "标签（用 # 分隔）", wide: true }
+      { key: "endDate", label: "结束时间" }
     ];
   }
   if (key === "notices") {
@@ -753,10 +759,16 @@ function defaultRowActions(key) {
       { key: "delete", label: "永久删除", icon: "delete", tone: "danger" }
     ];
   }
+  if (key === "users" || key === "notices") {
+    return [
+      { key: "view", label: "主页", icon: "view" },
+      { key: "edit", label: "编辑", icon: "edit" },
+      { key: "archive", label: key === "notices" ? "停用" : "归档", icon: "delete", tone: "danger" }
+    ];
+  }
   return [
     { key: "view", label: "主页", icon: "view" },
-    { key: "edit", label: "编辑", icon: "edit" },
-    { key: "archive", label: "归档", icon: "delete", tone: "danger" }
+    { key: "edit", label: "编辑", icon: "edit" }
   ];
 }
 
@@ -1017,6 +1029,8 @@ function resetForm(seed = {}) {
   page.value.formFields.forEach((field) => {
     formModel[field.key] = seed[field.key] ?? "";
   });
+  formModel.tags = activeKey.value === "projects" && Array.isArray(seed.tags) ? [...new Set(seed.tags.filter(Boolean))] : [];
+  tagLibraryOpen.value = false;
 }
 
 function openCreate() {
@@ -1043,6 +1057,24 @@ function defaultSeed(key) {
 
 function updateFormField({ key, value }) {
   formModel[key] = value;
+}
+
+function selectProjectTag(tag) {
+  if (!tag?.name || selectedProjectTags.value.includes(tag.name)) return;
+  formModel.tags = selectedProjectTags.value.concat(tag.name);
+  tagLibraryOpen.value = false;
+}
+
+function removeProjectTag(tagName) {
+  formModel.tags = selectedProjectTags.value.filter((name) => name !== tagName);
+}
+
+function tagColor(tagName) {
+  return store.getTag(tagName).color;
+}
+
+function tagLabel(tagName) {
+  return store.getTag(tagName).name;
 }
 
 async function callApi(label, requestFactory) {
@@ -1099,7 +1131,7 @@ async function handleCrudSubmit() {
       if (formMode.value === "edit" && selectedRow.value?.id) {
         const found = store.findProjectWithGroup?.(selectedRow.value.id);
         if (found?.project) Object.assign(found.project, normalizeProjectPayload(payload));
-        await callApi("项目更新", () => adminApi.updateProject(selectedRow.value.id, payload));
+        await callApi("项目更新", () => adminApi.updateProject(selectedRow.value.id, normalizeProjectPayload(payload)));
       } else {
         const project = normalizeProjectPayload(payload);
         store.rootProjects.unshift({ id: Date.now(), members: [store.currentUser?.name || "管理员"], memberRoles: { [store.currentUser?.name || "管理员"]: "manager" }, tasks: [], ...project });
@@ -1134,6 +1166,7 @@ async function handleCrudSubmit() {
     }
     formOpen.value = false;
     formSyncStatus.value = "";
+    tagLibraryOpen.value = false;
     resetForm(defaultSeed(key));
   } finally {
     formSubmitting.value = false;
@@ -1143,10 +1176,7 @@ async function handleCrudSubmit() {
 function normalizeProjectPayload(payload) {
   return {
     ...payload,
-    tags: String(payload.tags || "")
-      .split("#")
-      .map((tag) => tag.trim())
-      .filter(Boolean)
+    tags: selectedProjectTags.value
   };
 }
 
@@ -1182,6 +1212,16 @@ function removeLocalProject(projectId) {
   }
 }
 
+function confirmPermanentProjectDelete(row) {
+  if (typeof window === "undefined" || typeof window.confirm !== "function") return true;
+  const projectName = row?.name || row?.title || row?.projectName || row?.id || "未命名项目";
+  return window.confirm(`确认永久删除项目「${projectName}」吗？该操作会删除项目及其任务、排期、评论等关联数据，无法恢复。`);
+}
+
+function showUnsupportedArchiveNotice() {
+  store.showToast("当前后台页暂不支持归档，已阻止误请求。");
+}
+
 async function handleRowAction({ action, row }) {
   if (action === "view") {
     selectedRow.value = row;
@@ -1205,6 +1245,7 @@ async function handleRowAction({ action, row }) {
     return;
   }
   if (action === "delete" && activeKey.value === "projects" && row.id) {
+    if (!confirmPermanentProjectDelete(row)) return;
     await callApi("项目永久删除", () => adminApi.deleteProject(row.id, { hard: true }));
     removeLocalProject(row.id);
     if (selectedRow.value?.id === row.id) selectedRow.value = null;
@@ -1227,7 +1268,7 @@ async function handleRowAction({ action, row }) {
       const response = await callApi("公告停用", () => adminApi.updateNotice(row.id, next));
       applyNoticeResponse(response, next);
     } else {
-      await callApi("记录归档", () => adminApi.deleteTask(row.id || row.key || row.name, { soft: true }));
+      showUnsupportedArchiveNotice();
     }
   }
 }
@@ -1257,55 +1298,150 @@ async function handleRowAction({ action, row }) {
       :initial-usage-logs="rawPage.usageLogs"
     />
 
-    <ConsoleSection
-      v-else
-      :title="page.title"
-      :description="page.description"
-      :cards="page.cards"
-      :rows="filteredRows"
-      :columns="page.columns"
-      :filters="page.filters"
-      :active-filter="activeFilter"
-      :layout="sectionLayout"
-      :show-metrics="showSectionMetrics"
-      :dashboard-panels="dashboardPanels"
-      :dashboard-system-cards="dashboardSystemCards"
-      :dashboard-system-rows="dashboardSystemRows"
-      :chart-items="dashboardChartItems"
-      :trend-items="dashboardTrendItems"
-      :show-filters="activeKey !== 'dashboard'"
-      :query="localQuery"
-      :query-placeholder="queryPlaceholder"
-      :selected-row="selectedRow"
-      :detail-title="`${page.title}详情抽屉`"
-      :detail-fields="page.detailFields"
-      :detail-lists="selectedDetailLists"
-      :context-title="activeKey === 'projects' ? '项目目录树' : `${page.title}目录`"
-      :context-subtitle="activeKey === 'projects' ? '一级目录与归档分组' : '按范围与状态快速定位'"
-      :context-items="contextItems"
-      :context-hint="contextHintFor(activeKey)"
-      :quick-filters="quickFilters"
-      :primary-action-label="page.primaryActionLabel"
-      :row-actions="page.rowActions"
-      :form-open="formOpen"
-      :form-title="formTitle"
-      :form-fields="page.formFields"
-      :form-model="formModel"
-      :form-submit-label="formSubmitLabel"
-      :form-sync-status="formSyncStatus"
-      :form-submitting="formSubmitting"
-      scope-note="超级管理员可查看全局用户、项目、任务、评论、排期与画板。"
-      empty-text="暂无后台数据"
-      @create="openCreate"
-      @refresh="store.showToast('后台数据已刷新')"
-      @filter="activeFilter = $event"
-      @update:query="localQuery = $event"
-      @select-row="selectedRow = $event"
-      @chart-navigate="navigateDashboardChart"
-      @row-action="handleRowAction"
-      @update-form-field="updateFormField"
-      @submit-form="handleCrudSubmit"
-      @close-form="formOpen = false"
-    />
+    <div v-else class="console-section-wrap">
+      <ConsoleSection
+        :title="page.title"
+        :description="page.description"
+        :cards="page.cards"
+        :rows="filteredRows"
+        :columns="page.columns"
+        :filters="page.filters"
+        :active-filter="activeFilter"
+        :layout="sectionLayout"
+        :show-metrics="showSectionMetrics"
+        :dashboard-panels="dashboardPanels"
+        :dashboard-system-cards="dashboardSystemCards"
+        :dashboard-system-rows="dashboardSystemRows"
+        :chart-items="dashboardChartItems"
+        :trend-items="dashboardTrendItems"
+        :show-filters="activeKey !== 'dashboard'"
+        :query="localQuery"
+        :query-placeholder="queryPlaceholder"
+        :selected-row="selectedRow"
+        :detail-title="`${page.title}详情抽屉`"
+        :detail-fields="page.detailFields"
+        :detail-lists="selectedDetailLists"
+        :context-title="activeKey === 'projects' ? '项目目录树' : `${page.title}目录`"
+        :context-subtitle="activeKey === 'projects' ? '一级目录与归档分组' : '按范围与状态快速定位'"
+        :context-items="contextItems"
+        :context-hint="contextHintFor(activeKey)"
+        :quick-filters="quickFilters"
+        :primary-action-label="page.primaryActionLabel"
+        :row-actions="page.rowActions"
+        :form-open="formOpen"
+        :form-title="formTitle"
+        :form-fields="page.formFields"
+        :form-model="formModel"
+        :form-submit-label="formSubmitLabel"
+        :form-sync-status="formSyncStatus"
+        :form-submitting="formSubmitting"
+        scope-note="超级管理员可查看全局用户、项目、任务、评论、排期与画板。"
+        empty-text="暂无后台数据"
+        @create="openCreate"
+        @refresh="store.showToast('后台数据已刷新')"
+        @filter="activeFilter = $event"
+        @update:query="localQuery = $event"
+        @select-row="selectedRow = $event"
+        @chart-navigate="navigateDashboardChart"
+        @row-action="handleRowAction"
+        @update-form-field="updateFormField"
+        @submit-form="handleCrudSubmit"
+        @close-form="formOpen = false"
+      />
+      <Teleport to="body">
+        <div v-if="showProjectTagPicker" class="console-tag-picker">
+          <span>标签</span>
+          <div class="console-tag-picker-list">
+            <button
+              v-for="tagName in selectedProjectTags"
+              :key="`admin-selected-${tagName}`"
+              class="tag-pill active-tag-pill"
+              type="button"
+              :data-color="tagColor(tagName)"
+              title="移除标签"
+              @click="removeProjectTag(tagName)"
+            >
+              {{ tagLabel(tagName) }}
+            </button>
+            <button
+              class="tag-pill"
+              type="button"
+              title="从标签库选择标签"
+              aria-label="从标签库选择标签"
+              @click="tagLibraryOpen = !tagLibraryOpen"
+            >
+              +
+            </button>
+            <small v-if="!selectedProjectTags.length">暂无标签</small>
+          </div>
+          <div v-if="tagLibraryOpen" class="active-tag-popover console-tag-picker-popover">
+            <button
+              v-for="tag in availableProjectTags"
+              :key="`admin-library-${tag.name}`"
+              class="tag-pill active-tag-pill"
+              type="button"
+              :data-color="tag.color"
+              @click="selectProjectTag(tag)"
+            >
+              {{ tag.name }}
+            </button>
+            <span v-if="!availableProjectTags.length">标签库暂无可添加标签</span>
+          </div>
+        </div>
+      </Teleport>
+    </div>
   </ConsoleShell>
 </template>
+
+<style scoped>
+.console-tag-picker {
+  position: fixed;
+  z-index: 3001;
+  left: 50%;
+  bottom: calc(50% - 230px);
+  width: min(520px, calc(100vw - 40px));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.console-tag-picker > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.console-tag-picker-list {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+}
+
+.console-tag-picker .tag-pill {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #fff;
+  cursor: pointer;
+}
+
+.console-tag-picker-popover {
+  position: absolute;
+  right: 16px;
+  bottom: 54px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.16);
+}
+</style>

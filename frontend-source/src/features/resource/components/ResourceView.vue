@@ -96,6 +96,9 @@ const resourceState = reactive(createFallbackResourceState());
 
 const views = computed(() => buildVisibleViews(resourceState.permissions));
 const scopeType = computed(() => resourceState.permissions?.scope?.type || "self");
+const rawPeople = computed(() => resourceState.people);
+const allPeople = computed(() => rawPeople.value);
+const scopePersonAccess = computed(() => buildScopePersonAccess(resourceState.permissions?.scope || { type: "self" }, resourceState.workItems));
 const isTimelineBlankContextMenu = computed(() => contextMenu.targetType === "timeline-blank");
 const isDepartmentContextMenu = computed(() => contextMenu.targetType === "department");
 const isPersonContextMenu = computed(() => contextMenu.targetType === "person");
@@ -143,9 +146,12 @@ const selectedPerson = computed(() => {
   return visiblePeople.value.find((person) => person.id === selectedPersonId.value) || visiblePeople.value[0] || null;
 });
 
+const permissionScopePeople = computed(() => {
+  return allPeople.value.filter((person) => personMatchesCurrentScope(person, scopePersonAccess.value));
+});
+
 const scopeVisiblePeople = computed(() => {
-  return resourceState.people.filter((person) => {
-    if (scopeType.value === "self" && !isSelfPerson(person)) return false;
+  return permissionScopePeople.value.filter((person) => {
     if (activeView.value === "department" && selectedDepartmentId.value && person.departmentId !== selectedDepartmentId.value) return false;
     if (mode.value === "department" && selectedDepartmentId.value && person.departmentId !== selectedDepartmentId.value) return false;
     if (mode.value === "person" && selectedPersonId.value && person.id !== selectedPersonId.value) return false;
@@ -177,10 +183,7 @@ const visibleDepartments = computed(() => {
 });
 
 const sidebarScopePeople = computed(() => {
-  return resourceState.people.filter((person) => {
-    if (scopeType.value === "self" && !isSelfPerson(person)) return false;
-    return true;
-  });
+  return permissionScopePeople.value;
 });
 
 const sidebarVisiblePeople = computed(() => {
@@ -432,6 +435,45 @@ function isSelfPerson(person) {
   const current = store.currentUser || {};
   const scopedUserIds = new Set(resourceState.permissions?.scope?.userIds || []);
   return scopedUserIds.has(person.id) || person.id === current.id || person.name === current.name || person.isSelf;
+}
+
+function buildScopePersonAccess(scope = {}, workItems = []) {
+  const type = scope.type || "self";
+  const allowedDepartments = new Set(toStringArray(scope.departmentIds));
+  const allowedProjects = new Set(toStringArray(scope.projectIds));
+  const allowedUsers = new Set(toStringArray(scope.userIds));
+  const allowedNames = new Set();
+
+  if (["project", "authorized"].includes(type) && allowedProjects.size) {
+    workItems.forEach((item) => {
+      if (!allowedProjects.has(String(item.projectId))) return;
+      if (item.personId) allowedUsers.add(item.personId);
+      if (item.assigneeName) allowedNames.add(item.assigneeName);
+    });
+  }
+
+  return {
+    type,
+    allowedDepartments,
+    allowedProjects,
+    allowedUsers,
+    allowedNames
+  };
+}
+
+function personMatchesCurrentScope(person = {}, access = scopePersonAccess.value) {
+  if (access.type === "company") return true;
+  if (access.type === "department") {
+    return access.allowedDepartments.has(person.departmentId) || access.allowedDepartments.has(person.departmentName);
+  }
+  if (access.type === "project") {
+    return access.allowedUsers.has(person.id) || access.allowedUsers.has(person.userId) || access.allowedNames.has(person.name);
+  }
+  if (access.type === "authorized") {
+    if (!access.allowedUsers.size && !access.allowedProjects.size) return false;
+    return access.allowedUsers.has(person.id) || access.allowedUsers.has(person.userId) || access.allowedNames.has(person.name);
+  }
+  return isSelfPerson(person);
 }
 
 function scopeLabel(scope) {
@@ -958,8 +1000,8 @@ function canTogglePersonCare(person = null) {
   return Boolean(store.currentUser?.id) && store.currentUser.id !== targetUserId && typeof store.toggleCareContact === "function";
 }
 
-function firstCareablePerson() {
-  return resourceState.people.find((person) => canTogglePersonCare(person)) || resourceState.people[0] || null;
+function firstCareablePerson(people = permissionScopePeople.value) {
+  return people.find((person) => canTogglePersonCare(person)) || people[0] || null;
 }
 
 function isPersonCare(person = null) {
@@ -1033,9 +1075,8 @@ function applyScopeToResourceState() {
       clearScopedResourceData();
       return;
     }
-    const scopedPeople = resourceState.people.filter((person) => allowedDepartments.has(person.departmentId) || allowedDepartments.has(person.departmentName));
+    const scopedPeople = allPeople.value.filter((person) => allowedDepartments.has(person.departmentId) || allowedDepartments.has(person.departmentName));
     const scopedPeopleIds = new Set(scopedPeople.map((person) => person.id));
-    resourceState.people = scopedPeople;
     resourceState.departments = resourceState.departments.filter((department) => allowedDepartments.has(department.id) || allowedDepartments.has(department.name));
     resourceState.workItems = resourceState.workItems.filter(
       (item) =>
@@ -1061,7 +1102,6 @@ function applyScopeToResourceState() {
     });
     if (!allowedUsers.size && !allowedNames.size) {
       if (resourceState.workItems.some(isUnassignedWorkItem)) {
-        resourceState.people = [];
         resourceState.availability = [];
         resourceState.candidates = [];
         return;
@@ -1069,9 +1109,9 @@ function applyScopeToResourceState() {
       clearScopedResourceData();
       return;
     }
-    resourceState.people = resourceState.people.filter((person) => allowedUsers.has(person.id) || allowedNames.has(person.name));
-    const scopedPeopleIds = new Set(resourceState.people.map((person) => person.id));
-    const scopedPeopleNames = new Set(resourceState.people.map((person) => person.name));
+    const scopedPeople = allPeople.value.filter((person) => allowedUsers.has(person.id) || allowedNames.has(person.name));
+    const scopedPeopleIds = new Set(scopedPeople.map((person) => person.id));
+    const scopedPeopleNames = new Set(scopedPeople.map((person) => person.name));
     resourceState.workItems = resourceState.workItems.filter((item) => !item.personId || scopedPeopleIds.has(item.personId) || scopedPeopleNames.has(item.assigneeName));
     resourceState.availability = resourceState.availability.filter((item) => scopedPeopleIds.has(item.personId));
     resourceState.candidates = resourceState.candidates.filter((candidate) => scopedPeopleIds.has(candidate.personId) || scopedPeopleNames.has(candidate.name));
@@ -1095,11 +1135,10 @@ function applyScopeToResourceState() {
       });
     }
 
-    const scopedPeople = resourceState.people.filter((person) => allowedUsers.has(person.id) || allowedUsers.has(person.userId) || allowedNames.has(person.name));
+    const scopedPeople = allPeople.value.filter((person) => allowedUsers.has(person.id) || allowedUsers.has(person.userId) || allowedNames.has(person.name));
     const scopedPeopleIds = new Set(scopedPeople.map((person) => person.id));
     const scopedPeopleUserIds = new Set(scopedPeople.map((person) => person.userId).filter(Boolean));
     const scopedPeopleNames = new Set(scopedPeople.map((person) => person.name));
-    resourceState.people = scopedPeople;
     resourceState.workItems = resourceState.workItems.filter(
       (item) =>
         !item.personId ||
@@ -1114,9 +1153,20 @@ function applyScopeToResourceState() {
   alignSelfScopeData();
 }
 
+function upsertPerson(person = {}) {
+  const normalizedPerson = normalizePerson(person);
+  if (!normalizedPerson.id) return null;
+  const index = resourceState.people.findIndex((entry) => personMergeKey(entry) === personMergeKey(normalizedPerson));
+  if (index >= 0) {
+    resourceState.people[index] = { ...resourceState.people[index], ...normalizedPerson };
+    return resourceState.people[index];
+  }
+  resourceState.people = [...resourceState.people, normalizedPerson];
+  return normalizedPerson;
+}
+
 function clearScopedResourceData() {
   resourceState.departments = [];
-  resourceState.people = [];
   resourceState.workItems = [];
   resourceState.availability = [];
   resourceState.candidates = [];
@@ -1126,7 +1176,7 @@ function workItemMatchesCurrentScope(item = {}) {
   const scope = resourceState.permissions?.scope || { type: "self" };
   if (scope.type === "company") return true;
   if (scope.type === "department") {
-    const person = resourceState.people.find((entry) => entry.id === item.personId || entry.name === item.assigneeName);
+    const person = allPeople.value.find((entry) => entry.id === item.personId || entry.name === item.assigneeName);
     const allowedDepartments = new Set(scope.departmentIds || []);
     return Boolean(
       (person && (allowedDepartments.has(person.departmentId) || allowedDepartments.has(person.departmentName))) ||
@@ -1150,14 +1200,14 @@ function ensureAllowedView() {
   if (!selectedDepartmentId.value || !resourceState.departments.some((department) => department.id === selectedDepartmentId.value)) {
     selectedDepartmentId.value = resourceState.permissions?.scope?.departmentIds?.[0] || resourceState.departments[0]?.id || "";
   }
-  if (!selectedPersonId.value || !resourceState.people.some((person) => person.id === selectedPersonId.value)) {
-    const defaultPerson = scopeType.value === "self" ? resourceState.people.find(isSelfPerson) || resourceState.people[0] : firstCareablePerson();
+  if (!selectedPersonId.value || !permissionScopePeople.value.some((person) => person.id === selectedPersonId.value)) {
+    const defaultPerson = scopeType.value === "self" ? permissionScopePeople.value.find(isSelfPerson) || permissionScopePeople.value[0] : firstCareablePerson();
     selectedPersonId.value = defaultPerson?.id || "";
   }
   if (scopeType.value === "self") {
     activeView.value = "person";
     mode.value = "person";
-    const currentUserPerson = resourceState.people.find(isSelfPerson) || resourceState.people[0];
+    const currentUserPerson = permissionScopePeople.value.find(isSelfPerson) || permissionScopePeople.value[0];
     selectedPersonId.value = currentUserPerson?.id || "";
   }
   if (!selectedCandidateId.value) selectedCandidateId.value = bestCandidate.value?.personId || "";
@@ -1177,7 +1227,7 @@ function alignSelfScopeData() {
         id: "self-department",
         name: current.department || "我的部门",
       };
-      resourceState.departments = [department];
+      resourceState.departments = mergeByKey(resourceState.departments, [department], departmentMergeKey);
     }
     person = {
       id: currentId,
@@ -1190,7 +1240,7 @@ function alignSelfScopeData() {
       tone: "green",
       recommendation: "仅展示我的任务和空闲窗口。",
     };
-    resourceState.people = [person];
+    person = upsertPerson(person);
   } else {
     person.id = currentId;
     person.name = currentName;
@@ -1198,7 +1248,7 @@ function alignSelfScopeData() {
     person.departmentName = current.department || person.departmentName;
     person.roleTitle = current.job || current.characterLabel || person.roleTitle;
     person.isSelf = true;
-    resourceState.people = [person];
+    upsertPerson(person);
   }
 
   if (!resourceState.workItems.some((item) => item.personId === person.id)) {
@@ -1277,14 +1327,14 @@ function reconcileVisibleSelection() {
 
 function selectDepartment(departmentId) {
   selectedDepartmentId.value = departmentId;
-  const person = resourceState.people.find((item) => item.departmentId === departmentId);
+  const person = permissionScopePeople.value.find((item) => item.departmentId === departmentId);
   if (person) selectedPersonId.value = person.id;
   if (activeView.value === "person") activeView.value = resourceState.permissions.canViewDepartmentView ? "department" : "person";
   if (mode.value === "person") mode.value = "department";
 }
 
 function selectPerson(personId) {
-  const person = resourceState.people.find((item) => item.id === personId);
+  const person = permissionScopePeople.value.find((item) => item.id === personId);
   if (!person) return;
   if (scopeType.value === "self" && !isSelfPerson(person)) return;
   selectedPersonId.value = person.id;
@@ -1382,7 +1432,7 @@ function normalizeContextTargetType(payload = {}) {
 function findPersonFromContextPayload(payload = {}) {
   const personId = payload.personId || payload.userId || payload.assigneeId;
   if (!personId) return null;
-  return resourceState.people.find((person) => person.id === personId) || null;
+  return permissionScopePeople.value.find((person) => person.id === personId) || null;
 }
 
 function findDepartmentFromContextPayload(payload = {}, person = null) {
@@ -2283,9 +2333,8 @@ function createFallbackResourceState() {
     { id: "pm", name: "项目管理", color: "green" },
     { id: "pm", name: "项目管理", color: "green" },
     { id: "design", name: "美术设计", color: "pink" },
-    { id: "threeD", name: "三维动画", color: "blue" },
-    { id: "threeD", name: "三维动画", color: "blue" },
-    { id: "post", name: "后期合成", color: "orange" }
+    { id: "threeD", name: "三维动态", color: "blue" },
+    { id: "post", name: "视效包装", color: "orange" }
   ];
   const people = [
     { id: "pm-luosen", name: "罗森", avatar: "罗", departmentId: "pm", departmentName: "项目管理", roleTitle: "项目经理", load: 72, skills: ["项目管理", "协同沟通"], tone: "green" },
@@ -2297,9 +2346,9 @@ function createFallbackResourceState() {
     { id: "design-lili", name: "莉莉", avatar: "莉", departmentId: "design", departmentName: "美术设计", roleTitle: "主视觉 / 海报", load: 92, skills: ["主视觉"], tone: "yellow" },
     { id: "aigc-xiaoyu", name: "小宇", avatar: "宇", departmentId: "aigc", departmentName: "AIGC", roleTitle: "生成 / 复核", load: 104, skills: ["AIGC"], tone: "purple" },
     { id: "aigc-wuming", name: "吴明", avatar: "吴", departmentId: "aigc", departmentName: "AIGC", roleTitle: "质量检查", load: 58, skills: ["质量检查"], tone: "purple" },
-    { id: "threeD-damu", name: "大牧", avatar: "牧", departmentId: "threeD", departmentName: "三维动画", roleTitle: "绑定 / 动画", load: 88, skills: ["绑定"], tone: "blue" },
-    { id: "threeD-xiaobai", name: "小白", avatar: "白", departmentId: "threeD", departmentName: "三维动画", roleTitle: "场景 / 渲染", load: 67, skills: ["渲染"], tone: "blue" },
-    { id: "post-anqi", name: "后期安琪", avatar: "安", departmentId: "post", departmentName: "后期合成", roleTitle: "合成 / 包装", load: 62, skills: ["合成"], tone: "orange" }
+    { id: "threeD-damu", name: "大牧", avatar: "牧", departmentId: "threeD", departmentName: "三维动态", roleTitle: "绑定 / 动画", load: 88, skills: ["绑定"], tone: "blue" },
+    { id: "threeD-xiaobai", name: "小白", avatar: "白", departmentId: "threeD", departmentName: "三维动态", roleTitle: "场景 / 渲染", load: 67, skills: ["渲染"], tone: "blue" },
+    { id: "post-anqi", name: "视效安琪", avatar: "安", departmentId: "post", departmentName: "视效包装", roleTitle: "合成 / 包装", load: 62, skills: ["合成"], tone: "orange" }
   ];
   const permissions = inferPermissions(store.currentUser || {});
   if (permissions.scope.type === "self") {
@@ -2337,9 +2386,9 @@ function createFallbackResourceState() {
       { id: "w-13", personId: "aigc-xiaoyu", title: "素材生成", project: "AIGC", startDate: "2026/05/15", endDate: "2026/05/22", status: "danger" },
       { id: "w-14", personId: "aigc-xiaoyu", title: "效果复核", project: "AIGC", startDate: "2026/05/29", endDate: "2026/06/06", status: "danger" },
       { id: "w-15", personId: "aigc-wuming", title: "提示词库", project: "AIGC", startDate: "2026/05/16", endDate: "2026/05/19", status: "normal" },
-      { id: "w-16", personId: "threeD-damu", title: "骨骼绑定", project: "三维动画", startDate: "2026/05/14", endDate: "2026/05/23", status: "warning" },
-      { id: "w-17", personId: "threeD-xiaobai", title: "场景搭建", project: "三维动画", startDate: "2026/05/15", endDate: "2026/05/18", status: "normal" },
-      { id: "w-18", personId: "post-anqi", title: "片头合成", project: "后期合成", startDate: "2026/05/12", endDate: "2026/05/18", status: "normal" }
+      { id: "w-16", personId: "threeD-damu", title: "骨骼绑定", project: "三维动态", startDate: "2026/05/14", endDate: "2026/05/23", status: "warning" },
+      { id: "w-17", personId: "threeD-xiaobai", title: "场景搭建", project: "三维动态", startDate: "2026/05/15", endDate: "2026/05/18", status: "normal" },
+      { id: "w-18", personId: "post-anqi", title: "片头合成", project: "视效包装", startDate: "2026/05/12", endDate: "2026/05/18", status: "normal" }
     ],
     availability: [
       { id: "a-1", personId: "design-ui-a", startDate: "2026/05/18", endDate: "2026/05/23", label: "可接活" },
@@ -2632,9 +2681,3 @@ onMounted(loadResourceState);
     </div>
   </section>
 </template>
-
-
-
-
-
-
